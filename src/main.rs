@@ -45,7 +45,31 @@ fn getuser(name: &str) -> String {
     }
 }
 
+#[get("/ticket/get/by/author/<author_id>", rank = 2)]
+fn get_ticket_by_author(author_id: i32) -> String {
+    let conn = &mut establish_connection();
+    let authorraw = users::table
+        .filter(users::id.eq(author_id))
+        .select(User::as_select())
+        .get_result(conn);
+    if authorraw.is_err() {
+        return String::from("author not found");
+    }
+
+    let author = authorraw.unwrap();
+
+    let tickets = TicketAuthor::belonging_to(&author)
+        .inner_join(tickets::table)
+        .select(Ticket::as_select())
+        .load(conn);
+    if tickets.is_err() {
+        return String::from("error thing");
+    } else {
+        format!("Tickets: {:?}\n", tickets.unwrap())
+    }
+}
+
 #[launch]
 fn rocket() -> _ {
-    rocket::build().mount("/", routes![newuser, getuser])
+    rocket::build().mount("/", routes![newuser, getuser, get_ticket_by_author])
 }

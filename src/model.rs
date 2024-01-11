@@ -17,8 +17,7 @@ pub enum TicketType {
     EMPLOYEE,
 }
 
-#[derive(Queryable, Selectable, Identifiable, Associations, Debug, PartialEq)]
-#[diesel(belongs_to(User))]
+#[derive(Queryable, Selectable, Identifiable, Debug, PartialEq)]
 #[diesel(table_name = tickets)]
 pub struct Ticket {
     pub id: i32,

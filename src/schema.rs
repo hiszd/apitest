@@ -1,11 +1,14 @@
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
+    use diesel::sql_types::{ Int4, Text };
+    use crate::TicketTypeMapping;
     tickets (id) {
         id -> Int4,
-        number -> Int4,
+        index -> Int4,
         subject -> Text,
-        user_id -> Int4,
+        description -> Text,
+        ticktype -> TicketTypeMapping,
     }
 }
 
@@ -23,7 +26,6 @@ diesel::table! {
     }
 }
 
-diesel::joinable!(tickets -> users (user_id));
 diesel::joinable!(tickets_authors -> tickets (ticket_id));
 diesel::joinable!(tickets_authors -> users (author_id));
 
