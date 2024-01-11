@@ -1,9 +1,17 @@
+use diesel::prelude::*;
+
 mod db;
+pub mod model;
+pub mod schema;
+
+use crate::model::*;
+use crate::schema::*;
+use apitest::establish_connection;
 
 #[macro_use]
 extern crate rocket;
 
-use rocket::serde::json::{json, Json, Value};
+// use rocket::serde::json::Json;
 use rocket::serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
@@ -12,24 +20,32 @@ struct Task<'r> {
     description: &'r str,
     complete: bool,
 }
-
-#[post("/todo", data = "<task>")]
-fn new(task: Json<Task<'_>>) -> String {
-    format!(
-        "{} {}\n",
-        "Hello, world!\nThis is a description: ", task.description
-    )
+#[get("/user/new/<name>")]
+fn newuser(name: &str) -> String {
+    let conn = &mut establish_connection();
+    let user = diesel::insert_into(users::table)
+        .values(users::name.eq(name))
+        .returning(User::as_returning())
+        .get_result(conn)
+        .unwrap();
+    format!("User: {:?}\n", user)
 }
 
-#[get("/test")]
-fn ret() -> Json<Task<'static>> {
-    Json(Task {
-        description: "Hello, world!",
-        complete: true,
-    })
+#[get("/user/get/<name>")]
+fn getuser(name: &str) -> String {
+    let conn = &mut establish_connection();
+    let user = users::table
+        .filter(users::name.eq(name))
+        .select(User::as_select())
+        .get_result(conn);
+    if user.is_err() {
+        return String::from("User not found");
+    } else {
+        format!("User: {:?}\n", user.unwrap())
+    }
 }
 
 #[launch]
 fn rocket() -> _ {
-    rocket::build().mount("/", routes![new, ret])
+    rocket::build().mount("/", routes![newuser, getuser])
 }
