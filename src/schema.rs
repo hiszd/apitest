@@ -1,14 +1,28 @@
 // @generated automatically by Diesel CLI.
 
+pub mod sql_types {
+    #[derive(diesel::query_builder::QueryId, diesel::sql_types::SqlType)]
+    #[diesel(postgres_type(name = "statustype"))]
+    pub struct Statustype;
+
+    #[derive(diesel::query_builder::QueryId, diesel::sql_types::SqlType)]
+    #[diesel(postgres_type(name = "tickettype"))]
+    pub struct Tickettype;
+}
+
 diesel::table! {
-    use diesel::sql_types::{ Int4, Text };
-    use crate::TicketTypeMapping;
+    use diesel::sql_types::*;
+    use super::sql_types::Statustype;
+    use super::sql_types::Tickettype;
+
     tickets (id) {
         id -> Int4,
-        index -> Int4,
+        number -> Int4,
         subject -> Text,
-        description -> Text,
-        ticktype -> TicketTypeMapping,
+        user_id -> Int4,
+        status -> Nullable<Statustype>,
+        ticktype -> Nullable<Tickettype>,
+        description -> Nullable<Text>,
     }
 }
 
@@ -26,7 +40,12 @@ diesel::table! {
     }
 }
 
+diesel::joinable!(tickets -> users (user_id));
 diesel::joinable!(tickets_authors -> tickets (ticket_id));
 diesel::joinable!(tickets_authors -> users (author_id));
 
-diesel::allow_tables_to_appear_in_same_query!(tickets, tickets_authors, users,);
+diesel::allow_tables_to_appear_in_same_query!(
+    tickets,
+    tickets_authors,
+    users,
+);

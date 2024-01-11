@@ -9,7 +9,7 @@ pub struct User {
     pub name: String,
 }
 
-#[derive(PartialEq, Debug, diesel_derive_enum::DbEnum)]
+#[derive(PartialEq, Debug, diesel_derive_enum::DbEnum, diesel::Expression)]
 pub enum TicketType {
     HARDWARE,
     SOFTWARE,
@@ -17,11 +17,23 @@ pub enum TicketType {
     EMPLOYEE,
 }
 
+impl From<String> for TicketType {
+    fn from(s: String) -> Self {
+        match s.as_str() {
+            "hardware" => TicketType::HARDWARE,
+            "software" => TicketType::SOFTWARE,
+            "email" => TicketType::EMAIL,
+            "employee" => TicketType::EMPLOYEE,
+            _ => TicketType::HARDWARE,
+        }
+    }
+}
+
 #[derive(Queryable, Selectable, Identifiable, Debug, PartialEq)]
 #[diesel(table_name = tickets)]
 pub struct Ticket {
     pub id: i32,
-    pub index: i32,
+    pub number: i32,
     pub subject: String,
     pub description: String,
     pub ticktype: TicketType,
