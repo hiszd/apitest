@@ -17,12 +17,13 @@ diesel::table! {
 
     tickets (id) {
         id -> Int4,
-        number -> Int4,
+        count -> Int4,
         subject -> Text,
-        user_id -> Int4,
-        status -> Nullable<Statustype>,
-        ticktype -> Nullable<Tickettype>,
-        description -> Nullable<Text>,
+        description -> Text,
+        status -> Statustype,
+        ticktype -> Tickettype,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
     }
 }
 
@@ -37,10 +38,11 @@ diesel::table! {
     users (id) {
         id -> Int4,
         name -> Varchar,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
     }
 }
 
-diesel::joinable!(tickets -> users (user_id));
 diesel::joinable!(tickets_authors -> tickets (ticket_id));
 diesel::joinable!(tickets_authors -> users (author_id));
 

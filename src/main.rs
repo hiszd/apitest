@@ -1,38 +1,67 @@
 use diesel::prelude::*;
 
 mod db;
-pub mod model;
-pub mod schema;
 
-use crate::model::*;
-use crate::schema::*;
 use apitest::establish_connection;
+use apitest::model::*;
+use apitest::schema::*;
+use apitest::types::{statustype::StatusType, tickettype::TicketType};
 
 #[macro_use]
 extern crate rocket;
 
+use rocket::http::Status;
+use rocket::response::status;
 use rocket::serde::json::Json;
 use rocket::serde::{Deserialize, Serialize};
+use rocket::Request;
 
-#[derive(Deserialize, Serialize)]
+#[catch(default)]
+fn default_catcher(status: Status, req: &Request<'_>) -> status::Custom<String> {
+    let msg = format!("{} ({})\n{:?}", status, req.uri(), req.headers());
+    status::Custom(status, msg)
+}
+
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(crate = "rocket::serde")]
 struct TicketJson {
-    number: i32,
+    count: i32,
     subject: String,
     description: String,
     ticktype: String,
+    status: String,
+}
+
+#[get("/ticket/list")]
+fn listtickets() -> String {
+    let conn = &mut establish_connection();
+    let tik = tickets::table.select(Ticket::as_select()).load(conn);
+
+    match tik.is_err() {
+        true => format!("Tickets not found: {:?}", tik.unwrap_err()),
+        false => format!("Tickets: {:?}\n", tik.unwrap()),
+    }
 }
 
 #[post("/ticket/new", data = "<ticket>")]
 fn newticket(ticket: Json<TicketJson>) -> String {
+    println!("Ticket: {:?}", ticket);
     let conn = &mut establish_connection();
-    let tik = diesel::insert_into(tickets::table).values((
-        tickets::subject.eq(&ticket.subject),
-        tickets::description.eq(&ticket.description),
-        tickets::number.eq(&ticket.number),
-        tickets::ticktype.eq(TicketType::from(ticket.ticktype)),
-    ));
-    format!("Ticket: {:?}\n", tik)
+    let tik = diesel::insert_into(tickets::table)
+        .values((
+            tickets::count.eq(ticket.count),
+            tickets::subject.eq(&ticket.subject),
+            tickets::description.eq(&ticket.description),
+            tickets::status.eq(StatusType::from(ticket.status.clone())),
+            tickets::ticktype.eq(TicketType::from(ticket.ticktype.clone())),
+        ))
+        .returning(Ticket::as_returning())
+        .get_result(conn);
+
+    match tik.is_err() {
+        true => format!("Ticket not created: {:?}", tik.unwrap_err()),
+        false => format!("Ticket: {:?}\n", tik.unwrap()),
+    }
 }
 
 #[get("/user/new/<name>")]
@@ -83,5 +112,16 @@ fn get_ticket_by_author(author_id: i32) -> String {
 
 #[launch]
 fn rocket() -> _ {
-    rocket::build().mount("/", routes![newuser, getuser, get_ticket_by_author])
+    rocket::build()
+        .mount(
+            "/",
+            routes![
+                newuser,
+                getuser,
+                get_ticket_by_author,
+                newticket,
+                listtickets
+            ],
+        )
+        .register("/", catchers![default_catcher])
 }

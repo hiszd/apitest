@@ -1,4 +1,6 @@
+use crate::types::{statustype::StatusType, tickettype::TicketType};
 use diesel::prelude::*;
+use rocket::serde::{Deserialize, Serialize};
 
 use crate::schema::{tickets, tickets_authors, users};
 
@@ -9,33 +11,16 @@ pub struct User {
     pub name: String,
 }
 
-#[derive(PartialEq, Debug, diesel_derive_enum::DbEnum, diesel::Expression)]
-pub enum TicketType {
-    HARDWARE,
-    SOFTWARE,
-    EMAIL,
-    EMPLOYEE,
-}
-
-impl From<String> for TicketType {
-    fn from(s: String) -> Self {
-        match s.as_str() {
-            "hardware" => TicketType::HARDWARE,
-            "software" => TicketType::SOFTWARE,
-            "email" => TicketType::EMAIL,
-            "employee" => TicketType::EMPLOYEE,
-            _ => TicketType::HARDWARE,
-        }
-    }
-}
-
-#[derive(Queryable, Selectable, Identifiable, Debug, PartialEq)]
+#[derive(
+    Selectable, Insertable, Queryable, Serialize, Deserialize, Identifiable, Clone, PartialEq, Debug,
+)]
 #[diesel(table_name = tickets)]
 pub struct Ticket {
     pub id: i32,
-    pub number: i32,
+    pub count: i32,
     pub subject: String,
     pub description: String,
+    pub status: StatusType,
     pub ticktype: TicketType,
 }
 
