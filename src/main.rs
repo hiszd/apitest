@@ -33,19 +33,29 @@ struct TicketJson {
 }
 
 #[get("/ticket/list")]
-fn listtickets() -> String {
+fn listtickets() -> Json<Vec<Ticket>> {
     let conn = &mut establish_connection();
     let tik = tickets::table.select(Ticket::as_select()).load(conn);
 
     match tik.is_err() {
-        true => format!("Tickets not found: {:?}", tik.unwrap_err()),
-        false => format!("Tickets: {:?}\n", tik.unwrap()),
+        true => Json(Vec::new()),
+        false => Json(tik.unwrap()),
+    }
+}
+
+#[get("/ticket/del/<id>")]
+fn delticket(id: i32) -> String {
+    let conn = &mut establish_connection();
+    let del = diesel::delete(tickets::table.filter(tickets::id.eq(id))).execute(conn);
+
+    match del.is_err() {
+        true => String::from("Error"),
+        false => String::from("Success"),
     }
 }
 
 #[post("/ticket/new", data = "<ticket>")]
-fn newticket(ticket: Json<TicketJson>) -> String {
-    println!("Ticket: {:?}", ticket);
+fn newticket(ticket: Json<TicketJson>) -> Option<Json<Ticket>> {
     let conn = &mut establish_connection();
     let tik = diesel::insert_into(tickets::table)
         .values((
@@ -59,8 +69,8 @@ fn newticket(ticket: Json<TicketJson>) -> String {
         .get_result(conn);
 
     match tik.is_err() {
-        true => format!("Ticket not created: {:?}", tik.unwrap_err()),
-        false => format!("Ticket: {:?}\n", tik.unwrap()),
+        true => None,
+        false => Some(Json(tik.unwrap())),
     }
 }
 
@@ -120,7 +130,8 @@ fn rocket() -> _ {
                 getuser,
                 get_ticket_by_author,
                 newticket,
-                listtickets
+                listtickets,
+                delticket
             ],
         )
         .register("/", catchers![default_catcher])
