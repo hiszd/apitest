@@ -4,7 +4,9 @@ use rocket::serde::{Deserialize, Serialize};
 
 use crate::schema::{tickets, tickets_authors, users};
 
-#[derive(Queryable, Identifiable, Selectable, Debug, PartialEq)]
+#[derive(
+    Selectable, Insertable, Queryable, Serialize, Deserialize, Identifiable, Clone, PartialEq, Debug,
+)]
 #[diesel(table_name = users)]
 pub struct User {
     pub id: i32,
@@ -24,7 +26,9 @@ pub struct Ticket {
     pub ticktype: TicketType,
 }
 
-#[derive(Identifiable, Selectable, Queryable, Associations, Debug)]
+#[derive(
+    Selectable, Insertable, Queryable, Serialize, Deserialize, Identifiable, Clone, PartialEq, Debug,
+)]
 #[diesel(belongs_to(Ticket))]
 #[diesel(belongs_to(User, foreign_key = author_id))]
 #[diesel(table_name = tickets_authors)]

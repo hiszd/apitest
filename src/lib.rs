@@ -3,6 +3,10 @@ use diesel::prelude::*;
 use dotenvy::dotenv;
 use std::env;
 
+extern crate tera;
+#[macro_use]
+extern crate rocket;
+
 pub mod model;
 pub mod schema;
 pub mod types;

@@ -15,6 +15,8 @@ use rocket::response::status;
 use rocket::serde::json::Json;
 use rocket::serde::{Deserialize, Serialize};
 use rocket::Request;
+use rocket_dyn_templates::context;
+use rocket_dyn_templates::Template;
 
 #[catch(default)]
 fn default_catcher(status: Status, req: &Request<'_>) -> status::Custom<String> {
@@ -74,6 +76,17 @@ fn newticket(ticket: Json<TicketJson>) -> Option<Json<Ticket>> {
     }
 }
 
+#[get("/user/list")]
+fn listusers() -> Json<Vec<User>> {
+    let conn = &mut establish_connection();
+    let tik = users::table.select(User::as_select()).load(conn);
+
+    match tik.is_err() {
+        true => Json(Vec::new()),
+        false => Json(tik.unwrap()),
+    }
+}
+
 #[get("/user/new/<name>")]
 fn newuser(name: &str) -> String {
     let conn = &mut establish_connection();
@@ -99,6 +112,25 @@ fn getuser(name: &str) -> String {
     }
 }
 
+#[get("/tickets_authors/list")]
+fn get_tickets_authors() -> Option<Json<Vec<TicketAuthor>>> {
+    let conn = &mut establish_connection();
+
+    let tickets = tickets_authors::table
+        .select(TicketAuthor::as_select())
+        .load(conn);
+
+    // let tickets = TicketAuthor::belonging_to(&author)
+    //     .inner_join(tickets::table)
+    //     .select(Ticket::as_select())
+    //     .load(conn);
+    if tickets.is_err() {
+        return None;
+    } else {
+        Some(Json(tickets.unwrap()))
+    }
+}
+
 #[get("/ticket/get/by/author/<author_id>", rank = 2)]
 fn get_ticket_by_author(author_id: i32) -> String {
     let conn = &mut establish_connection();
@@ -120,6 +152,17 @@ fn get_ticket_by_author(author_id: i32) -> String {
     }
 }
 
+#[get("/page")]
+fn page() -> Template {
+    Template::render(
+        "index",
+        context! {
+            title: "Hello, World!",
+            name: "Zion",
+        },
+    )
+}
+
 #[launch]
 fn rocket() -> _ {
     rocket::build()
@@ -131,8 +174,12 @@ fn rocket() -> _ {
                 get_ticket_by_author,
                 newticket,
                 listtickets,
-                delticket
+                listusers,
+                delticket,
+                page,
+                get_tickets_authors,
             ],
         )
         .register("/", catchers![default_catcher])
+        .attach(Template::fairing())
 }
