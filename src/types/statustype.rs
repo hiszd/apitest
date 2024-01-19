@@ -41,6 +41,18 @@ impl FromSql<crate::schema::sql_types::Statustype, Pg> for StatusType {
     }
 }
 
+impl ToString for StatusType {
+    fn to_string(&self) -> String {
+        match self {
+            StatusType::Open => String::from("open"),
+            StatusType::Closed => String::from("closed"),
+            StatusType::Working => String::from("working"),
+            StatusType::Assigned => String::from("assigned"),
+            StatusType::Unassigned => String::from("unassigned"),
+        }
+    }
+}
+
 impl From<String> for StatusType {
     fn from(s: String) -> Self {
         match s.to_lowercase().as_str() {

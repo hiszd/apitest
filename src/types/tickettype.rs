@@ -38,6 +38,17 @@ impl FromSql<crate::schema::sql_types::Tickettype, Pg> for TicketType {
     }
 }
 
+impl ToString for TicketType {
+    fn to_string(&self) -> String {
+        match self {
+            TicketType::Hardware => String::from("hardware"),
+            TicketType::Software => String::from("software"),
+            TicketType::Email => String::from("email"),
+            TicketType::Employee => String::from("employee"),
+        }
+    }
+}
+
 impl From<String> for TicketType {
     fn from(s: String) -> Self {
         match s.to_lowercase().as_str() {

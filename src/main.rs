@@ -25,7 +25,14 @@ fn default_catcher(status: Status, req: &Request<'_>) -> status::Custom<String> 
 
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(crate = "rocket::serde")]
+struct NewUserJson {
+    name: String,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+#[serde(crate = "rocket::serde")]
 struct UserJson {
+    id: i32,
     name: String,
 }
 
@@ -42,7 +49,15 @@ struct NewTicketJson {
 
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(crate = "rocket::serde")]
+struct TicketWAuthorJson {
+    ticket: TicketJson,
+    author: UserJson,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+#[serde(crate = "rocket::serde")]
 struct TicketJson {
+    id: i32,
     count: i32,
     subject: String,
     description: String,
@@ -51,7 +66,7 @@ struct TicketJson {
 }
 
 #[post("/user/new", data = "<user>")]
-fn new_user(user: Json<UserJson>) -> Json<User> {
+fn new_user(user: Json<NewUserJson>) -> Json<User> {
     let usr = diesel::insert_into(users::table)
         .values(users::name.eq(&user.name))
         .returning(User::as_returning())
@@ -163,13 +178,44 @@ fn get_tickets_by_author_id(author_id: i32) -> Json<Vec<Ticket>> {
 }
 
 #[get("/ticket/list/all")]
-fn list_tickets() -> Json<Vec<Ticket>> {
-    Json(
-        tickets::table
+fn list_tickets() -> Json<Vec<TicketWAuthorJson>> {
+    let users = users::table
+        .select(User::as_select())
+        .load(&mut establish_connection())
+        .unwrap();
+    let tickets: Vec<TicketWAuthorJson> = users.iter().fold(Vec::new(), |mut acc, user| {
+        let tickets = tickets_authors::table
+            .filter(tickets_authors::author_id.eq(user.id))
+            .inner_join(tickets::table)
             .select(Ticket::as_select())
-            .load(&mut establish_connection())
-            .unwrap(),
-    )
+            .load(&mut establish_connection());
+        if tickets.is_err() {
+            acc
+        } else {
+            let tickets_w_author: Vec<TicketWAuthorJson> =
+                tickets.unwrap().iter().fold(Vec::new(), |mut acc, ticket| {
+                    let tik = TicketWAuthorJson {
+                        ticket: TicketJson {
+                            id: ticket.id,
+                            count: ticket.count,
+                            subject: ticket.subject.clone(),
+                            description: ticket.description.clone(),
+                            ticktype: ticket.ticktype.to_string(),
+                            status: ticket.status.to_string(),
+                        },
+                        author: UserJson {
+                            id: user.id,
+                            name: user.name.clone(),
+                        },
+                    };
+                    acc.push(tik);
+                    acc
+                });
+            acc.extend(tickets_w_author);
+            acc
+        }
+    });
+    Json(tickets)
 }
 
 #[get("/ticket/remove/<id>")]
