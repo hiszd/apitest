@@ -38,6 +38,7 @@ diesel::table! {
     users (id) {
         id -> Int4,
         name -> Varchar,
+        email -> Varchar,
         created_at -> Timestamp,
         updated_at -> Timestamp,
     }
@@ -46,8 +47,4 @@ diesel::table! {
 diesel::joinable!(tickets_authors -> tickets (ticket_id));
 diesel::joinable!(tickets_authors -> users (author_id));
 
-diesel::allow_tables_to_appear_in_same_query!(
-    tickets,
-    tickets_authors,
-    users,
-);
+diesel::allow_tables_to_appear_in_same_query!(tickets, tickets_authors, users,);

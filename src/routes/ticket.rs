@@ -3,7 +3,8 @@ use diesel::prelude::*;
 use crate::establish_connection;
 use crate::model::*;
 use crate::schema::*;
-use crate::types::{json::*, statustype::*, tickettype::*};
+use crate::types::json::user::UserJson;
+use crate::types::{json::ticket::*, statustype::*, tickettype::*};
 use rocket::serde::json::Json;
 
 #[post("/ticket/new", data = "<ticket>")]

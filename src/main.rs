@@ -23,8 +23,8 @@ fn rocket() -> _ {
             "/",
             routes![
                 user::new_user,
-                user::get_user_by_id,
-                user::get_user_by_name,
+                user::get_user,
+                user::get_user_by_email,
                 user::list_users,
                 user::remove_user_by_id,
                 ticket::new_ticket,

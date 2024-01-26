@@ -1,40 +1,12 @@
 use crate::model::*;
 use rocket::serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize, Debug)]
-#[serde(crate = "rocket::serde")]
-pub struct NewUserJson {
-    pub name: String,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-#[serde(crate = "rocket::serde")]
-pub struct UserJson {
-    pub id: i32,
-    pub name: String,
-}
-
-impl From<&User> for UserJson {
-    fn from(u: &User) -> Self {
-        UserJson {
-            id: u.id,
-            name: u.name.clone(),
-        }
-    }
-}
-
-impl From<User> for UserJson {
-    fn from(u: User) -> Self {
-        UserJson {
-            id: u.id,
-            name: u.name,
-        }
-    }
-}
+use super::user::UserJson;
 
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(crate = "rocket::serde")]
 pub struct NewTicketJson {
+    pub secret: String,
     pub author_id: i32,
     pub count: i32,
     pub subject: String,
@@ -53,6 +25,7 @@ pub struct TicketWAuthorJson {
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(crate = "rocket::serde")]
 pub struct TicketJson {
+    pub secret: String,
     pub id: i32,
     pub count: i32,
     pub subject: String,
@@ -64,6 +37,7 @@ pub struct TicketJson {
 impl From<&Ticket> for TicketJson {
     fn from(t: &Ticket) -> Self {
         TicketJson {
+            secret: crate::SECRET.to_string(),
             id: t.id,
             count: t.count,
             subject: t.subject.clone(),
@@ -77,6 +51,7 @@ impl From<&Ticket> for TicketJson {
 impl From<Ticket> for TicketJson {
     fn from(t: Ticket) -> Self {
         TicketJson {
+            secret: crate::SECRET.to_string(),
             id: t.id,
             count: t.count,
             subject: t.subject,

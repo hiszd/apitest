@@ -7,6 +7,8 @@ extern crate tera;
 #[macro_use]
 extern crate rocket;
 
+pub const SECRET: &str = "supersecretkeythatshouldbechanged";
+
 pub mod model;
 pub mod routes;
 pub mod schema;
