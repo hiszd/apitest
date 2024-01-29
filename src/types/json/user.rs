@@ -5,10 +5,9 @@ use rocket::serde::{Deserialize, Serialize};
 #[serde(crate = "rocket::serde")]
 pub struct GetUserJson {
     pub secret: String,
-    pub id: Option<String>,
+    pub id: Option<i32>,
     pub name: Option<String>,
     pub email: Option<String>,
-    pub password: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
