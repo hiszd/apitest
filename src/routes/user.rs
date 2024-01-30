@@ -6,6 +6,19 @@ use crate::schema::*;
 use crate::types::json::user::*;
 use rocket::serde::json::Json;
 
+#[get("/user/new/test")]
+pub fn new_user_test() -> Json<User> {
+    let newuser = NewUser {
+        name: "test".to_string(),
+        email: "test@test.com".to_string(),
+    };
+    let usr = diesel::insert_into(users::table)
+        .values(&newuser)
+        .returning(User::as_returning())
+        .get_result(&mut establish_connection());
+    Json(usr.unwrap())
+}
+
 #[post("/user/new", data = "<user>")]
 pub fn new_user(user: Json<NewUserJson>) -> Json<User> {
     let newuser = NewUser {
@@ -32,21 +45,19 @@ pub fn get_user(data: Json<GetUserJson>) -> Result<Json<User>, ()> {
 
     let mut fltr = users::table.into_boxed();
 
-    if data.id.is_some() {
-        fltr = fltr.filter(users::id.eq(data.id.unwrap()));
+    if let Some(id) = data.id {
+        fltr = fltr.filter(users::id.eq(id));
     }
-    if data.name.is_some() {
-        fltr = fltr.filter(users::name.eq(data.name.unwrap()));
+    if let Some(name) = &data.name {
+        fltr = fltr.filter(users::name.eq(name));
     }
-    if data.email.is_some() {
-        fltr = fltr.filter(users::email.eq(data.email.unwrap()));
+    if let Some(email) = &data.email {
+        fltr = fltr.filter(users::email.eq(email));
     }
 
     Ok(Json(
-        // https://stackoverflow.com/questions/65039754/rust-diesel-conditionally-filter-a-query
-        // https://docs.rs/diesel/1.4.8/diesel/query_dsl/trait.QueryDsl.html#method.into_boxed
-        fltr.load(&mut establish_connection())
-            .expect("Error loading users")[0],
+        fltr.first(&mut establish_connection())
+            .expect("Error loading users"),
     ))
 }
 

@@ -1,4 +1,5 @@
 use crate::types::{statustype::StatusType, tickettype::TicketType};
+use chrono::NaiveDateTime;
 use diesel::prelude::*;
 use rocket::serde::{Deserialize, Serialize};
 
@@ -11,6 +12,8 @@ pub struct User {
     pub id: i32,
     pub name: String,
     pub email: String,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
 }
 
 #[derive(Insertable)]
@@ -29,6 +32,8 @@ pub struct Ticket {
     pub description: String,
     pub status: StatusType,
     pub ticktype: TicketType,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
 }
 
 #[derive(Insertable)]
