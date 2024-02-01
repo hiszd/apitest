@@ -5,10 +5,22 @@ use super::user::UserJson;
 
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(crate = "rocket::serde")]
+pub struct GetTicketJson {
+    pub secret: String,
+    pub author_id: Option<String>,
+    pub count: Option<String>,
+    pub subject: Option<String>,
+    pub description: Option<String>,
+    pub ticktype: Option<String>,
+    pub status: Option<String>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+#[serde(crate = "rocket::serde")]
 pub struct NewTicketJson {
     pub secret: String,
-    pub author_id: i32,
-    pub count: i32,
+    pub author_id: String,
+    pub count: String,
     pub subject: String,
     pub description: String,
     pub ticktype: String,
@@ -25,7 +37,6 @@ pub struct TicketWAuthorJson {
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(crate = "rocket::serde")]
 pub struct TicketJson {
-    pub secret: String,
     pub id: i32,
     pub count: i32,
     pub subject: String,
@@ -37,7 +48,6 @@ pub struct TicketJson {
 impl From<&Ticket> for TicketJson {
     fn from(t: &Ticket) -> Self {
         TicketJson {
-            secret: crate::SECRET.to_string(),
             id: t.id,
             count: t.count,
             subject: t.subject.clone(),
@@ -51,7 +61,6 @@ impl From<&Ticket> for TicketJson {
 impl From<Ticket> for TicketJson {
     fn from(t: Ticket) -> Self {
         TicketJson {
-            secret: crate::SECRET.to_string(),
             id: t.id,
             count: t.count,
             subject: t.subject,

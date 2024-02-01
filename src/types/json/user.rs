@@ -21,7 +21,6 @@ pub struct NewUserJson {
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(crate = "rocket::serde")]
 pub struct UserJson {
-    pub secret: String,
     pub id: i32,
     pub name: String,
     pub email: String,
@@ -30,7 +29,6 @@ pub struct UserJson {
 impl From<&User> for UserJson {
     fn from(u: &User) -> Self {
         UserJson {
-            secret: crate::SECRET.to_string(),
             id: u.id,
             name: u.name.clone(),
             email: u.email.clone(),
@@ -41,7 +39,6 @@ impl From<&User> for UserJson {
 impl From<User> for UserJson {
     fn from(u: User) -> Self {
         UserJson {
-            secret: crate::SECRET.to_string(),
             id: u.id,
             name: u.name,
             email: u.email,

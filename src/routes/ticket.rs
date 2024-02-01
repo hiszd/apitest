@@ -1,4 +1,5 @@
 use diesel::prelude::*;
+use rocket::serde::json::from_str;
 
 use crate::establish_connection;
 use crate::model::*;
@@ -12,7 +13,7 @@ pub fn new_ticket(ticket: Json<NewTicketJson>) -> Json<Ticket> {
     // create table entry to tickets for the new ticket
     let tik = diesel::insert_into(tickets::table)
         .values((
-            tickets::count.eq(ticket.count),
+            tickets::count.eq(from_str::<i32>(&ticket.count.as_str()).expect("invalid count")),
             tickets::subject.eq(&ticket.subject),
             tickets::description.eq(&ticket.description),
             tickets::status.eq(StatusType::from(ticket.status.clone())),
@@ -25,7 +26,8 @@ pub fn new_ticket(ticket: Json<NewTicketJson>) -> Json<Ticket> {
     // create table entry to tickets_authors for the relation between the ticket and the author
     diesel::insert_into(tickets_authors::table)
         .values((
-            tickets_authors::author_id.eq(ticket.author_id),
+            tickets_authors::author_id
+                .eq(from_str::<i32>(&ticket.author_id.as_str()).expect("invalid count")),
             tickets_authors::ticket_id.eq(tik.id),
         ))
         .execute(&mut establish_connection())
