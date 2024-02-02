@@ -8,6 +8,36 @@ use crate::types::json::user::UserJson;
 use crate::types::{json::ticket::*, statustype::*, tickettype::*};
 use rocket::serde::json::Json;
 
+fn delete_ticket(
+    ticket_id: i32,
+    conn: &mut PgConnection,
+) -> Result<Json<Ticket>, diesel::result::Error> {
+    println!("Deleting ticket {}", ticket_id);
+    let tik = tickets::table
+        .filter(tickets::id.eq(ticket_id))
+        .select(Ticket::as_select())
+        .get_result(conn);
+    let del_auth_rel = diesel::delete(tickets_authors::table)
+        .filter(tickets_authors::ticket_id.eq(ticket_id))
+        .execute(conn);
+    let del_ticket = diesel::delete(tickets::table)
+        .filter(tickets::id.eq(ticket_id))
+        .execute(conn);
+
+    if tik.is_err() {
+        println!("Ticket not found");
+        Err(tik.err().unwrap())
+    } else if del_auth_rel.is_err() {
+        println!("Ticket relation not removed");
+        Err(del_auth_rel.err().unwrap())
+    } else if del_ticket.is_err() {
+        println!("Ticket not removed");
+        Err(del_ticket.err().unwrap())
+    } else {
+        Ok(Json(tik.unwrap()))
+    }
+}
+
 #[post("/ticket/new", data = "<ticket>")]
 pub fn new_ticket(ticket: Json<NewTicketJson>) -> Json<Ticket> {
     // create table entry to tickets for the new ticket
@@ -102,16 +132,11 @@ pub fn list_tickets() -> Json<Vec<TicketWAuthorJson>> {
 #[get("/ticket/remove/<id>")]
 pub fn remove_ticket_by_id(id: i32) -> Option<Json<Ticket>> {
     let conn = &mut establish_connection();
-    let tik = tickets::table
-        .filter(tickets::id.eq(id))
-        .select(Ticket::as_select())
-        .get_result(conn);
-    let del = diesel::delete(tickets::table)
-        .filter(tickets::id.eq(id))
-        .execute(conn);
-    if del.is_err() || tik.is_err() {
-        None
-    } else {
-        Some(Json(tik.unwrap()))
+    match delete_ticket(id, conn) {
+        Ok(tik) => Some(tik),
+        Err(e) => {
+            println!("Error: {}", e);
+            None
+        }
     }
 }
