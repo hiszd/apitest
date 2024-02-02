@@ -30,7 +30,12 @@ pub struct NewTicketJson {
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(crate = "rocket::serde")]
 pub struct TicketWAuthorJson {
-    pub ticket: Option<TicketJson>,
+    pub id: i32,
+    pub count: i32,
+    pub subject: String,
+    pub description: String,
+    pub ticktype: String,
+    pub status: String,
     pub author: Option<UserJson>,
 }
 

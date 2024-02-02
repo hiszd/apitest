@@ -81,7 +81,12 @@ pub fn list_tickets() -> Json<Vec<TicketWAuthorJson>> {
             let tickets_w_author: Vec<TicketWAuthorJson> =
                 tickets.unwrap().iter().fold(Vec::new(), |mut acc, ticket| {
                     let tik = TicketWAuthorJson {
-                        ticket: Some(TicketJson::from(ticket)),
+                        id: ticket.id,
+                        count: ticket.count,
+                        subject: ticket.subject.clone(),
+                        description: ticket.description.clone(),
+                        ticktype: ticket.ticktype.to_string(),
+                        status: ticket.status.to_string(),
                         author: Some(UserJson::from(user)),
                     };
                     acc.push(tik);
