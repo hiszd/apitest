@@ -1,12 +1,16 @@
-use diesel::prelude::*;
-use rocket::serde::json::from_str;
+use std::io::Cursor;
 
 use crate::establish_connection;
 use crate::model::*;
 use crate::schema::*;
 use crate::types::json::user::UserJson;
 use crate::types::{json::ticket::*, statustype::*, tickettype::*};
+use diesel::prelude::*;
+use rocket::http::ContentType;
+use rocket::response::status::NoContent;
+use rocket::serde::json::from_str;
 use rocket::serde::json::Json;
+use rocket::Response;
 
 fn delete_ticket(
     ticket_id: i32,
@@ -93,8 +97,13 @@ pub fn get_tickets_by_author_id(author_id: i32) -> Json<Vec<Ticket>> {
     )
 }
 
+#[options("/ticket/list/all")]
+pub fn list_tickets_options() -> NoContent {
+    NoContent
+}
+
 #[get("/ticket/list/all")]
-pub fn list_tickets() -> Json<Vec<TicketWAuthorJson>> {
+pub fn list_tickets<'r>() -> String {
     let users = users::table
         .select(User::as_select())
         .load(&mut establish_connection())
@@ -126,7 +135,12 @@ pub fn list_tickets() -> Json<Vec<TicketWAuthorJson>> {
             acc
         }
     });
-    Json(tickets)
+    rocket::serde::json::serde_json::to_string(&tickets).unwrap()
+    // Response::build()
+    //     .header(ContentType::JSON)
+    //     .raw_header("Cache-Control", "max-age=120")
+    //     .sized_body(json.len(), Cursor::new(json))
+    //     .finalize()
 }
 
 #[get("/ticket/remove/<id>")]

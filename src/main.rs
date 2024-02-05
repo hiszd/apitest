@@ -5,10 +5,36 @@ use apitest::routes::*;
 #[macro_use]
 extern crate rocket;
 
-use rocket::http::Status;
+use rocket::fairing::{Fairing, Info, Kind};
+use rocket::http::{Header, Status};
 use rocket::response::status;
-use rocket::Request;
+use rocket::{Request, Response};
 use rocket_dyn_templates::Template;
+
+pub struct CORS;
+
+#[rocket::async_trait]
+impl Fairing for CORS {
+    fn info(&self) -> Info {
+        Info {
+            name: "Add CORS headers to responses",
+            kind: Kind::Response,
+        }
+    }
+
+    async fn on_response<'r>(&self, _request: &'r Request<'_>, response: &mut Response<'r>) {
+        response.set_header(Header::new(
+            "Access-Control-Allow-Origin",
+            "http://localhost:3000",
+        ));
+        response.set_header(Header::new(
+            "Access-Control-Allow-Methods",
+            "POST, GET, OPTIONS",
+        ));
+        response.set_header(Header::new("Access-Control-Allow-Headers", "*"));
+        response.set_header(Header::new("Access-Control-Allow-Credentials", "true"));
+    }
+}
 
 #[catch(default)]
 fn default_catcher(status: Status, req: &Request<'_>) -> status::Custom<String> {
@@ -19,6 +45,8 @@ fn default_catcher(status: Status, req: &Request<'_>) -> status::Custom<String> 
 #[launch]
 fn rocket() -> _ {
     rocket::build()
+        .attach(CORS)
+        .attach(Template::fairing())
         .mount(
             "/",
             routes![
@@ -32,9 +60,11 @@ fn rocket() -> _ {
                 ticket::get_ticket_by_id,
                 ticket::get_tickets_by_author_id,
                 ticket::list_tickets,
+                ticket::list_tickets_options,
                 ticket::remove_ticket_by_id,
             ],
         )
+        .attach(CORS)
         .register("/", catchers![default_catcher])
-        .attach(Template::fairing())
+        .attach(CORS)
 }

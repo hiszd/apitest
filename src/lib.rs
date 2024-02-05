@@ -1,6 +1,8 @@
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use dotenvy::dotenv;
+use rocket::http::Header;
+use rocket::Response;
 use std::env;
 
 extern crate tera;
@@ -13,6 +15,17 @@ pub mod model;
 pub mod routes;
 pub mod schema;
 pub mod types;
+
+pub fn add_headers<'r>(response: &'r mut Response<'r>) -> &'r mut rocket::Response<'r> {
+    response.set_header(Header::new("Access-Control-Allow-Origin", "*"));
+    response.set_header(Header::new(
+        "Access-Control-Allow-Methods",
+        "POST, GET, OPTIONS",
+    ));
+    response.set_header(Header::new("Access-Control-Allow-Headers", "*"));
+    response.set_header(Header::new("Access-Control-Allow-Credentials", "true"));
+    return response;
+}
 
 pub fn establish_connection() -> PgConnection {
     dotenv().ok();
