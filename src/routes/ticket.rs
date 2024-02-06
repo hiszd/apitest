@@ -1,16 +1,12 @@
-use std::io::Cursor;
-
 use crate::establish_connection;
 use crate::model::*;
 use crate::schema::*;
 use crate::types::json::user::UserJson;
 use crate::types::{json::ticket::*, statustype::*, tickettype::*};
 use diesel::prelude::*;
-use rocket::http::ContentType;
 use rocket::response::status::NoContent;
 use rocket::serde::json::from_str;
 use rocket::serde::json::Json;
-use rocket::Response;
 
 fn delete_ticket(
     ticket_id: i32,
