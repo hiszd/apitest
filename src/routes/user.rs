@@ -1,4 +1,5 @@
 use diesel::prelude::*;
+use rocket::response::status::NoContent;
 
 use crate::establish_connection;
 use crate::model::*;
@@ -32,10 +33,9 @@ pub fn new_user(user: Json<NewUserJson>) -> Json<User> {
     Json(usr.unwrap())
 }
 
-// WORK HERE
 // TODO: change all requests to POST and confirm secret before doing anything
 #[post("/user/get", data = "<data>")]
-pub fn get_user(data: Json<GetUserJson>) -> Result<Json<User>, ()> {
+pub fn get_user(data: Json<UserSelectJson>) -> Result<Json<User>, ()> {
     println!("{:?}", data);
 
     if data.secret != crate::SECRET {
@@ -61,16 +61,9 @@ pub fn get_user(data: Json<GetUserJson>) -> Result<Json<User>, ()> {
     ))
 }
 
-// TODO: change all requests to POST and confirm secret before doing anything
-#[get("/user/<email>", rank = 2)]
-pub fn get_user_by_email(email: &str) -> Json<User> {
-    Json(
-        users::table
-            .filter(users::name.eq(email))
-            .select(User::as_select())
-            .get_result(&mut establish_connection())
-            .unwrap(),
-    )
+#[options("/user/get")]
+pub fn get_user_preflight() -> NoContent {
+    NoContent
 }
 
 // TODO: change all requests to POST and confirm secret before doing anything
@@ -100,4 +93,32 @@ pub fn remove_user_by_id(id: i32) -> Option<Json<User>> {
     } else {
         Some(Json(usr.unwrap()))
     }
+}
+
+// TODO: change all requests to POST and confirm secret before doing anything
+#[post("/user/remove", data = "<data>")]
+pub fn get_user(data: Json<UserSelectJson>) -> Result<Json<User>, ()> {
+    println!("{:?}", data);
+
+    if data.secret != crate::SECRET {
+        println!("Wrong secret: {}, {}", data.secret, crate::SECRET);
+        return Err(());
+    }
+
+    let mut fltr = users::table.into_boxed();
+
+    if let Some(id) = data.id {
+        fltr = fltr.filter(users::id.eq(id));
+    }
+    if let Some(name) = &data.name {
+        fltr = fltr.filter(users::name.eq(name));
+    }
+    if let Some(email) = &data.email {
+        fltr = fltr.filter(users::email.eq(email));
+    }
+
+    Ok(Json(
+        fltr.first(&mut establish_connection())
+            .expect("Error loading users"),
+    ))
 }

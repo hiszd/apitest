@@ -53,6 +53,7 @@ fn rocket() -> _ {
                 user::new_user,
                 user::new_user_test,
                 user::get_user,
+                user::get_user_preflight,
                 user::get_user_by_email,
                 user::list_users,
                 user::remove_user_by_id,
@@ -60,7 +61,7 @@ fn rocket() -> _ {
                 ticket::get_ticket_by_id,
                 ticket::get_tickets_by_author_id,
                 ticket::list_tickets,
-                ticket::list_tickets_options,
+                ticket::list_tickets_preflight,
                 ticket::remove_ticket_by_id,
             ],
         )

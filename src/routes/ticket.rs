@@ -94,7 +94,7 @@ pub fn get_tickets_by_author_id(author_id: i32) -> Json<Vec<Ticket>> {
 }
 
 #[options("/ticket/list/all")]
-pub fn list_tickets_options() -> NoContent {
+pub fn list_tickets_preflight() -> NoContent {
     NoContent
 }
 
