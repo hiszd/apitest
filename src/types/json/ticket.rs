@@ -5,8 +5,9 @@ use super::user::UserJson;
 
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(crate = "rocket::serde")]
-pub struct GetTicketJson {
+pub struct TicketSelectJson {
     pub secret: String,
+    pub id: Option<i32>,
     pub author_id: Option<String>,
     pub count: Option<String>,
     pub subject: Option<String>,
@@ -19,6 +20,7 @@ pub struct GetTicketJson {
 #[serde(crate = "rocket::serde")]
 pub struct NewTicketJson {
     pub secret: String,
+    pub id: i32,
     pub author_id: String,
     pub count: String,
     pub subject: String,

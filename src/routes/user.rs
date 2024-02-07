@@ -22,6 +22,13 @@ pub fn new_user_test() -> Json<User> {
 
 #[post("/user/new", data = "<user>")]
 pub fn new_user(user: Json<NewUserJson>) -> Json<User> {
+    assert!(
+        user.secret == crate::SECRET,
+        "Wrong secret: {}, {}",
+        user.secret,
+        crate::SECRET
+    );
+
     let newuser = NewUser {
         name: user.name.clone(),
         email: user.email.clone(),
@@ -33,18 +40,14 @@ pub fn new_user(user: Json<NewUserJson>) -> Json<User> {
     Json(usr.unwrap())
 }
 
-// TODO: change all requests to POST and confirm secret before doing anything
 #[post("/user/get", data = "<data>")]
 pub fn get_user(data: Json<UserSelectJson>) -> Result<Json<User>, ()> {
     println!("{:?}", data);
-
     if data.secret != crate::SECRET {
         println!("Wrong secret: {}, {}", data.secret, crate::SECRET);
         return Err(());
     }
-
     let mut fltr = users::table.into_boxed();
-
     if let Some(id) = data.id {
         fltr = fltr.filter(users::id.eq(id));
     }
@@ -54,7 +57,6 @@ pub fn get_user(data: Json<UserSelectJson>) -> Result<Json<User>, ()> {
     if let Some(email) = &data.email {
         fltr = fltr.filter(users::email.eq(email));
     }
-
     Ok(Json(
         fltr.first(&mut establish_connection())
             .expect("Error loading users"),
@@ -77,28 +79,11 @@ pub fn list_users() -> Json<Vec<User>> {
     )
 }
 
-// TODO: change all requests to POST and confirm secret before doing anything
-#[get("/user/remove/<id>")]
-pub fn remove_user_by_id(id: i32) -> Option<Json<User>> {
-    let conn = &mut establish_connection();
-    let usr = users::table
-        .filter(users::id.eq(id))
-        .select(User::as_select())
-        .get_result(conn);
-    let del = diesel::delete(users::table)
-        .filter(users::id.eq(id))
-        .execute(conn);
-    if del.is_err() || usr.is_err() {
-        None
-    } else {
-        Some(Json(usr.unwrap()))
-    }
-}
-
-// TODO: change all requests to POST and confirm secret before doing anything
 #[post("/user/remove", data = "<data>")]
-pub fn get_user(data: Json<UserSelectJson>) -> Result<Json<User>, ()> {
+pub fn remove_user(data: Json<UserSelectJson>) -> Result<Json<User>, ()> {
     println!("{:?}", data);
+
+    let conn = &mut establish_connection();
 
     if data.secret != crate::SECRET {
         println!("Wrong secret: {}, {}", data.secret, crate::SECRET);
@@ -117,8 +102,12 @@ pub fn get_user(data: Json<UserSelectJson>) -> Result<Json<User>, ()> {
         fltr = fltr.filter(users::email.eq(email));
     }
 
-    Ok(Json(
-        fltr.first(&mut establish_connection())
-            .expect("Error loading users"),
-    ))
+    let usr: User = fltr.first(conn).expect("Error loading users");
+
+    diesel::delete(users::table)
+        .filter(users::id.eq(usr.id))
+        .execute(conn)
+        .expect("Error deleting user");
+
+    Ok(Json(usr))
 }

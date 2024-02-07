@@ -93,6 +93,40 @@ pub fn get_tickets_by_author_id(author_id: i32) -> Json<Vec<Ticket>> {
     )
 }
 
+#[options("/ticket/get")]
+pub fn get_ticket_preflight() -> NoContent {
+    NoContent
+}
+
+#[post("/ticket/get", data = "<data>")]
+pub fn get_ticket(data: Json<TicketSelectJson>) -> Result<Json<Ticket>, ()> {
+    println!("{:?}", data);
+    if data.secret != crate::SECRET {
+        println!("Wrong secret: {}, {}", data.secret, crate::SECRET);
+        return Err(());
+    }
+    let mut fltr = tickets::table.into_boxed();
+    if let Some(id) = data.id {
+        fltr = fltr.filter(tickets::id.eq(id));
+    }
+    if let Some(subject) = &data.subject {
+        fltr = fltr.filter(tickets::subject.eq(subject));
+    }
+    if let Some(description) = &data.description {
+        fltr = fltr.filter(tickets::description.eq(description));
+    }
+    if let Some(status) = &data.status {
+        fltr = fltr.filter(tickets::status.eq(StatusType::from(status.clone())));
+    }
+    if let Some(ticktype) = &data.ticktype {
+        fltr = fltr.filter(tickets::ticktype.eq(TicketType::from(ticktype.clone())));
+    }
+    Ok(Json(
+        fltr.first(&mut establish_connection())
+            .expect("Error loading tickets"),
+    ))
+}
+
 #[options("/ticket/list/all")]
 pub fn list_tickets_preflight() -> NoContent {
     NoContent
