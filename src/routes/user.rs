@@ -42,7 +42,6 @@ pub fn new_user(user: Json<NewUserJson>) -> Json<User> {
 
 #[post("/user/get", data = "<data>")]
 pub fn get_user(data: Json<UserSelectJson>) -> Result<Json<User>, ()> {
-    println!("{:?}", data);
     if data.secret != crate::SECRET {
         println!("Wrong secret: {}, {}", data.secret, crate::SECRET);
         return Err(());
