@@ -78,6 +78,11 @@ pub fn list_users() -> Json<Vec<User>> {
     )
 }
 
+#[options("/user/list/all")]
+pub fn list_users_preflight() -> NoContent {
+    NoContent
+}
+
 #[post("/user/remove", data = "<data>")]
 pub fn remove_user(data: Json<UserSelectJson>) -> Result<Json<User>, ()> {
     println!("{:?}", data);
