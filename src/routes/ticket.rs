@@ -39,15 +39,15 @@ fn delete_ticket(
 }
 
 #[post("/ticket/new", data = "<ticket>")]
-pub fn new_ticket(ticket: Json<NewTicketJson>) -> Json<Ticket> {
+pub fn new_ticket(ticket: Json<WithSecret<NewTicketJson>>) -> Json<Ticket> {
     // create table entry to tickets for the new ticket
     let tik = diesel::insert_into(tickets::table)
         .values((
-            tickets::count.eq(from_str::<i32>(&ticket.count.as_str()).expect("invalid count")),
-            tickets::subject.eq(&ticket.subject),
-            tickets::description.eq(&ticket.description),
-            tickets::status.eq(StatusType::from(ticket.status.clone())),
-            tickets::ticktype.eq(TicketType::from(ticket.ticktype.clone())),
+            tickets::count.eq(from_str::<i32>(&ticket.data.count.as_str()).expect("invalid count")),
+            tickets::subject.eq(&ticket.data.subject),
+            tickets::description.eq(&ticket.data.description),
+            tickets::status.eq(StatusType::from(ticket.data.status.clone())),
+            tickets::ticktype.eq(TicketType::from(ticket.data.ticktype.clone())),
         ))
         .returning(Ticket::as_returning())
         .get_result(&mut establish_connection())
@@ -57,7 +57,7 @@ pub fn new_ticket(ticket: Json<NewTicketJson>) -> Json<Ticket> {
     diesel::insert_into(tickets_authors::table)
         .values((
             tickets_authors::author_id
-                .eq(from_str::<i32>(&ticket.author_id.as_str()).expect("invalid count")),
+                .eq(from_str::<i32>(&ticket.data.author_id.as_str()).expect("invalid count")),
             tickets_authors::ticket_id.eq(tik.id),
         ))
         .execute(&mut establish_connection())
@@ -93,38 +93,72 @@ pub fn get_tickets_by_author_id(author_id: i32) -> Json<Vec<Ticket>> {
     )
 }
 
+#[options("/ticket/update")]
+pub fn update_ticket_preflight() -> NoContent {
+    NoContent
+}
+
+#[post("/ticket/update", data = "<data>")]
+pub fn update_ticket(data: Json<WithSecret<TicketJson>>) -> Result<Json<Ticket>, ()> {
+    println!("{:?}", data);
+    if data.secret != crate::SECRET {
+        println!("Wrong secret: {}, {}", data.secret, crate::SECRET);
+        return Err(());
+    }
+
+    println!("Updating ticket {:?}", data);
+
+    let rslt = tickets::table
+        .filter(tickets::id.eq(data.data.id))
+        .get_result(&mut establish_connection());
+
+    // let rslt = diesel::update(tickets::table.filter(tickets::id.eq(data.data.id)))
+    //     .set((
+    //         tickets::subject.eq(data.data.subject.clone()),
+    //         tickets::description.eq(data.data.description.clone()),
+    //         tickets::status.eq(StatusType::from(data.data.status.clone())),
+    //         tickets::ticktype.eq(TicketType::from(data.data.ticktype.clone())),
+    //     ))
+    //     .get_result(&mut establish_connection());
+    match rslt {
+        Ok(tik) => Ok(Json(tik)),
+        Err(_) => Err(()),
+    }
+}
+
 #[options("/ticket/get")]
 pub fn get_ticket_preflight() -> NoContent {
     NoContent
 }
 
 #[post("/ticket/get", data = "<data>")]
-pub fn get_ticket(data: Json<TicketSelectJson>) -> Result<Json<Ticket>, ()> {
+pub fn get_ticket(data: Json<WithSecret<TicketSelectJson>>) -> Result<Json<Ticket>, ()> {
     println!("{:?}", data);
     if data.secret != crate::SECRET {
         println!("Wrong secret: {}, {}", data.secret, crate::SECRET);
         return Err(());
     }
     let mut fltr = tickets::table.into_boxed();
-    if let Some(id) = data.id {
+    if let Some(id) = data.data.id {
         fltr = fltr.filter(tickets::id.eq(id));
     }
-    if let Some(subject) = &data.subject {
+    if let Some(subject) = &data.data.subject {
         fltr = fltr.filter(tickets::subject.eq(subject));
     }
-    if let Some(description) = &data.description {
+    if let Some(description) = &data.data.description {
         fltr = fltr.filter(tickets::description.eq(description));
     }
-    if let Some(status) = &data.status {
+    if let Some(status) = &data.data.status {
         fltr = fltr.filter(tickets::status.eq(StatusType::from(status.clone())));
     }
-    if let Some(ticktype) = &data.ticktype {
+    if let Some(ticktype) = &data.data.ticktype {
         fltr = fltr.filter(tickets::ticktype.eq(TicketType::from(ticktype.clone())));
     }
-    Ok(Json(
-        fltr.first(&mut establish_connection())
-            .expect("Error loading tickets"),
-    ))
+    let rslt = fltr.first(&mut establish_connection());
+    match rslt {
+        Ok(tik) => Ok(Json(tik)),
+        Err(_) => Err(()),
+    }
 }
 
 #[options("/ticket/list/all")]
@@ -166,11 +200,6 @@ pub fn list_tickets<'r>() -> String {
         }
     });
     rocket::serde::json::serde_json::to_string(&tickets).unwrap()
-    // Response::build()
-    //     .header(ContentType::JSON)
-    //     .raw_header("Cache-Control", "max-age=120")
-    //     .sized_body(json.len(), Cursor::new(json))
-    //     .finalize()
 }
 
 #[get("/ticket/remove/<id>")]

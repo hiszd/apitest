@@ -3,10 +3,24 @@ use rocket::serde::{Deserialize, Serialize};
 
 use super::user::UserJson;
 
+pub trait SecretData {}
+
+#[derive(Deserialize, Serialize, Debug)]
+#[serde(crate = "rocket::serde")]
+pub struct WithSecret<T: SecretData> {
+    pub secret: String,
+    pub data: T,
+}
+
+impl<T: SecretData> WithSecret<T> {
+    pub fn new(secret: String, data: T) -> Self {
+        Self { secret, data }
+    }
+}
+
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(crate = "rocket::serde")]
 pub struct TicketSelectJson {
-    pub secret: String,
     pub id: Option<i32>,
     pub author_id: Option<String>,
     pub count: Option<String>,
@@ -15,11 +29,11 @@ pub struct TicketSelectJson {
     pub ticktype: Option<String>,
     pub status: Option<String>,
 }
+impl SecretData for TicketSelectJson {}
 
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(crate = "rocket::serde")]
 pub struct NewTicketJson {
-    pub secret: String,
     pub id: i32,
     pub author_id: String,
     pub count: String,
@@ -28,6 +42,7 @@ pub struct NewTicketJson {
     pub ticktype: String,
     pub status: String,
 }
+impl SecretData for NewTicketJson {}
 
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(crate = "rocket::serde")]
@@ -40,6 +55,7 @@ pub struct TicketWAuthorJson {
     pub status: String,
     pub author: Option<UserJson>,
 }
+impl SecretData for TicketWAuthorJson {}
 
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(crate = "rocket::serde")]
@@ -51,6 +67,7 @@ pub struct TicketJson {
     pub ticktype: String,
     pub status: String,
 }
+impl SecretData for TicketJson {}
 
 impl From<&Ticket> for TicketJson {
     fn from(t: &Ticket) -> Self {
