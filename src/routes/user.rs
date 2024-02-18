@@ -4,6 +4,7 @@ use rocket::response::status::NoContent;
 use crate::establish_connection;
 use crate::model::*;
 use crate::schema::*;
+use crate::types::json::shared::WithSecret;
 use crate::types::json::user::*;
 use rocket::serde::json::Json;
 
@@ -21,7 +22,7 @@ pub fn new_user_test() -> Json<User> {
 }
 
 #[post("/user/new", data = "<user>")]
-pub fn new_user(user: Json<NewUserJson>) -> Json<User> {
+pub fn new_user(user: Json<WithSecret<NewUserJson>>) -> Json<User> {
     assert!(
         user.secret == crate::SECRET,
         "Wrong secret: {}, {}",
@@ -30,8 +31,8 @@ pub fn new_user(user: Json<NewUserJson>) -> Json<User> {
     );
 
     let newuser = NewUser {
-        name: user.name.clone(),
-        email: user.email.clone(),
+        name: user.data.name.clone(),
+        email: user.data.email.clone(),
     };
     let usr = diesel::insert_into(users::table)
         .values(&newuser)
@@ -41,19 +42,19 @@ pub fn new_user(user: Json<NewUserJson>) -> Json<User> {
 }
 
 #[post("/user/get", data = "<data>")]
-pub fn get_user(data: Json<UserSelectJson>) -> Result<Json<User>, ()> {
+pub fn get_user(data: Json<WithSecret<UserSelectJson>>) -> Result<Json<User>, ()> {
     if data.secret != crate::SECRET {
         println!("Wrong secret: {}, {}", data.secret, crate::SECRET);
         return Err(());
     }
     let mut fltr = users::table.into_boxed();
-    if let Some(id) = data.id {
+    if let Some(id) = data.data.id {
         fltr = fltr.filter(users::id.eq(id));
     }
-    if let Some(name) = &data.name {
+    if let Some(name) = &data.data.name {
         fltr = fltr.filter(users::name.eq(name));
     }
-    if let Some(email) = &data.email {
+    if let Some(email) = &data.data.email {
         fltr = fltr.filter(users::email.eq(email));
     }
     Ok(Json(
@@ -84,7 +85,7 @@ pub fn list_users_preflight() -> NoContent {
 }
 
 #[post("/user/remove", data = "<data>")]
-pub fn remove_user(data: Json<UserSelectJson>) -> Result<Json<User>, ()> {
+pub fn remove_user(data: Json<WithSecret<UserSelectJson>>) -> Result<Json<User>, ()> {
     println!("{:?}", data);
 
     let conn = &mut establish_connection();
@@ -96,13 +97,13 @@ pub fn remove_user(data: Json<UserSelectJson>) -> Result<Json<User>, ()> {
 
     let mut fltr = users::table.into_boxed();
 
-    if let Some(id) = data.id {
+    if let Some(id) = data.data.id {
         fltr = fltr.filter(users::id.eq(id));
     }
-    if let Some(name) = &data.name {
+    if let Some(name) = &data.data.name {
         fltr = fltr.filter(users::name.eq(name));
     }
-    if let Some(email) = &data.email {
+    if let Some(email) = &data.data.email {
         fltr = fltr.filter(users::email.eq(email));
     }
 

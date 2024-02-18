@@ -25,7 +25,7 @@ impl Fairing for CORS {
     async fn on_response<'r>(&self, _request: &'r Request<'_>, response: &mut Response<'r>) {
         response.set_header(Header::new(
             "Access-Control-Allow-Origin",
-            "http://localhost:3000",
+            "http://192.168.1.244",
         ));
         response.set_header(Header::new(
             "Access-Control-Allow-Methods",
@@ -61,7 +61,7 @@ fn rocket() -> _ {
                 ticket::update_ticket_preflight,
                 ticket::new_ticket,
                 ticket::get_ticket_by_id,
-                ticket::get_tickets_by_author_id,
+                ticket::get_tickets_by_author,
                 ticket::list_tickets,
                 ticket::list_tickets_preflight,
                 ticket::remove_ticket_by_id,

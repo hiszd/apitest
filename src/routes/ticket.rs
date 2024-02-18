@@ -1,7 +1,9 @@
 use crate::establish_connection;
 use crate::model::*;
 use crate::schema::*;
+use crate::types::json::shared::WithSecret;
 use crate::types::json::user::UserJson;
+use crate::types::json::user::UserSelectJson;
 use crate::types::{json::ticket::*, statustype::*, tickettype::*};
 use diesel::prelude::*;
 use rocket::response::status::NoContent;
@@ -76,21 +78,46 @@ pub fn get_ticket_by_id(id: i32) -> Json<Ticket> {
     )
 }
 
-#[get("/ticket/list/<author_id>")]
-pub fn get_tickets_by_author_id(author_id: i32) -> Json<Vec<Ticket>> {
-    let author = users::table
-        .filter(users::id.eq(author_id))
-        .select(User::as_select())
-        .get_result(&mut establish_connection())
-        .unwrap();
-    Json(
-        tickets_authors::table
-            .filter(tickets_authors::author_id.eq(author.id))
-            .inner_join(tickets::table)
-            .select(Ticket::as_select())
-            .load(&mut establish_connection())
-            .unwrap(),
-    )
+#[options("/ticket/list/author")]
+pub fn get_tickets_by_author_preflight() -> NoContent {
+    NoContent
+}
+
+#[post("/ticket/list/author", data = "<data>")]
+pub fn get_tickets_by_author(
+    data: Json<WithSecret<UserSelectJson>>,
+) -> Result<Json<Vec<Ticket>>, ()> {
+    println!("{:?}", data);
+    if data.secret != crate::SECRET {
+        println!("Wrong secret: {}, {}", data.secret, crate::SECRET);
+        return Err(());
+    }
+    let mut fltr = users::table.into_boxed();
+    if let Some(f) = data.data.id {
+        fltr = fltr.filter(users::id.eq(f));
+    }
+    if let Some(f) = &data.data.name {
+        fltr = fltr.filter(users::name.eq(f));
+    }
+    if let Some(f) = &data.data.email {
+        fltr = fltr.filter(users::email.eq(f));
+    }
+    let user = fltr.first::<User>(&mut establish_connection());
+
+    match user {
+        Ok(u) => {
+            let rslt = tickets_authors::table
+                .inner_join(tickets::table)
+                .filter(tickets_authors::author_id.eq(u.id))
+                .select(Ticket::as_select())
+                .load(&mut establish_connection());
+            match rslt {
+                Ok(tik) => Ok(Json(tik)),
+                Err(_) => Err(()),
+            }
+        }
+        Err(_) => Err(()),
+    }
 }
 
 #[options("/ticket/update")]
@@ -100,7 +127,6 @@ pub fn update_ticket_preflight() -> NoContent {
 
 #[post("/ticket/update", data = "<data>")]
 pub fn update_ticket(data: Json<WithSecret<TicketJson>>) -> Result<Json<Ticket>, ()> {
-    println!("{:?}", data);
     if data.secret != crate::SECRET {
         println!("Wrong secret: {}, {}", data.secret, crate::SECRET);
         return Err(());
@@ -108,20 +134,24 @@ pub fn update_ticket(data: Json<WithSecret<TicketJson>>) -> Result<Json<Ticket>,
 
     println!("Updating ticket {:?}", data);
 
-    let rslt = tickets::table
-        .filter(tickets::id.eq(data.data.id))
+    // let rslt = tickets::table
+    //     .filter(tickets::id.eq(data.data.id))
+    //     .get_result(&mut establish_connection());
+
+    let rslt = diesel::update(tickets::table.filter(tickets::id.eq(data.data.id)))
+        .set((
+            tickets::subject.eq(data.data.subject.clone()),
+            tickets::description.eq(data.data.description.clone()),
+            tickets::status.eq(StatusType::from(data.data.status.clone())),
+            tickets::ticktype.eq(TicketType::from(data.data.ticktype.clone())),
+        ))
         .get_result(&mut establish_connection());
 
-    // let rslt = diesel::update(tickets::table.filter(tickets::id.eq(data.data.id)))
-    //     .set((
-    //         tickets::subject.eq(data.data.subject.clone()),
-    //         tickets::description.eq(data.data.description.clone()),
-    //         tickets::status.eq(StatusType::from(data.data.status.clone())),
-    //         tickets::ticktype.eq(TicketType::from(data.data.ticktype.clone())),
-    //     ))
-    //     .get_result(&mut establish_connection());
     match rslt {
-        Ok(tik) => Ok(Json(tik)),
+        Ok(tik) => {
+            println!("Updated ticket {:?}", tik);
+            Ok(Json(tik))
+        }
         Err(_) => Err(()),
     }
 }

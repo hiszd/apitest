@@ -1,22 +1,8 @@
 use crate::model::*;
 use rocket::serde::{Deserialize, Serialize};
 
+use super::shared::SecretData;
 use super::user::UserJson;
-
-pub trait SecretData {}
-
-#[derive(Deserialize, Serialize, Debug)]
-#[serde(crate = "rocket::serde")]
-pub struct WithSecret<T: SecretData> {
-    pub secret: String,
-    pub data: T,
-}
-
-impl<T: SecretData> WithSecret<T> {
-    pub fn new(secret: String, data: T) -> Self {
-        Self { secret, data }
-    }
-}
 
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(crate = "rocket::serde")]
