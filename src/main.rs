@@ -1,5 +1,7 @@
 mod db;
 
+use std::env;
+
 use apitest::routes::*;
 
 #[macro_use]
@@ -25,7 +27,7 @@ impl Fairing for CORS {
     async fn on_response<'r>(&self, _request: &'r Request<'_>, response: &mut Response<'r>) {
         response.set_header(Header::new(
             "Access-Control-Allow-Origin",
-            "http://192.168.1.244",
+            env::var("CORS_ALLOWED_ORIGINS").unwrap_or_else(|_| "*".to_string()),
         ));
         response.set_header(Header::new(
             "Access-Control-Allow-Methods",
