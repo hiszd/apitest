@@ -196,6 +196,8 @@ pub fn list_tickets_preflight() -> NoContent {
     NoContent
 }
 
+// TODO: when there are no users that have tickets assigned, then no tickets are returned.
+// this is very wrong. WORK on this!!
 #[get("/ticket/list/all")]
 pub fn list_tickets<'r>() -> String {
     let users = users::table
@@ -229,6 +231,7 @@ pub fn list_tickets<'r>() -> String {
             acc
         }
     });
+    println!("TICKETS: {:?}", tickets);
     rocket::serde::json::serde_json::to_string(&tickets).unwrap()
 }
 
