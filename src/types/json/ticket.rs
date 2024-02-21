@@ -20,7 +20,6 @@ impl SecretData for TicketSelectJson {}
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(crate = "rocket::serde")]
 pub struct NewTicketJson {
-    pub id: i32,
     pub author_id: String,
     pub count: String,
     pub subject: String,

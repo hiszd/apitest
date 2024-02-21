@@ -66,7 +66,7 @@ fn rocket() -> _ {
                 ticket::update_ticket,
                 ticket::update_ticket_preflight,
                 ticket::new_ticket,
-                // ticket::new_ticket_preflight,
+                ticket::new_ticket_preflight,
                 ticket::get_tickets_by_author,
                 ticket::list_tickets,
                 ticket::list_tickets_preflight,

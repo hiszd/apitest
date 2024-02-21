@@ -40,6 +40,11 @@ fn delete_ticket(
     }
 }
 
+#[options("/ticket/new")]
+pub fn new_ticket_preflight() -> NoContent {
+    NoContent
+}
+
 #[post("/ticket/new", data = "<ticket>")]
 pub fn new_ticket(ticket: Json<WithSecret<NewTicketJson>>) -> Json<Ticket> {
     // create table entry to tickets for the new ticket
@@ -59,7 +64,7 @@ pub fn new_ticket(ticket: Json<WithSecret<NewTicketJson>>) -> Json<Ticket> {
     diesel::insert_into(tickets_authors::table)
         .values((
             tickets_authors::author_id
-                .eq(from_str::<i32>(&ticket.data.author_id.as_str()).expect("invalid count")),
+                .eq(from_str::<i32>(&ticket.data.author_id.as_str()).expect("invalid author id")),
             tickets_authors::ticket_id.eq(tik.id),
         ))
         .execute(&mut establish_connection())

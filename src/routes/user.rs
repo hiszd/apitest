@@ -14,6 +14,22 @@ fn delete_user(user_id: i32, conn: &mut PgConnection) -> Result<Json<User>, dies
         .filter(users::id.eq(user_id))
         .select(User::as_select())
         .get_result(conn);
+    let tiks = tickets_authors::table
+        .inner_join(tickets::table)
+        .filter(tickets_authors::author_id.eq(user_id))
+        .select(Ticket::as_select())
+        .load(&mut establish_connection())
+        .unwrap();
+    tiks.iter().for_each(|tik| {
+        diesel::delete(tickets_authors::table)
+            .filter(tickets_authors::ticket_id.eq(tik.id))
+            .execute(conn)
+            .unwrap();
+        diesel::delete(tickets::table)
+            .filter(tickets::id.eq(tik.id))
+            .execute(conn)
+            .unwrap();
+    });
     let del_auth_rel = diesel::delete(tickets_authors::table)
         .filter(tickets_authors::author_id.eq(user_id))
         .execute(conn);
