@@ -49,7 +49,6 @@ pub fn new_ticket(ticket: Json<WithSecret<NewTicketJson>>) -> Json<Ticket> {
     // create table entry to tickets for the new ticket
     let tik = diesel::insert_into(tickets::table)
         .values((
-            tickets::count.eq(&ticket.data.count),
             tickets::subject.eq(&ticket.data.subject),
             tickets::description.eq(&ticket.data.description),
             tickets::status.eq(StatusType::from(ticket.data.status.clone())),
@@ -105,7 +104,7 @@ pub fn get_tickets_by_author(
     if let Some(f) = &data.data.email {
         fltr = fltr.filter(users::email.eq(f));
     }
-    let user = fltr.first::<User>(&mut establish_connection());
+    let user: Result<User, diesel::result::Error> = fltr.first(&mut establish_connection());
 
     match user {
         Ok(u) => {
@@ -228,7 +227,6 @@ pub fn list_tickets<'r>() -> String {
                 tickets.unwrap().iter().fold(Vec::new(), |mut acc, ticket| {
                     let tik = TicketWAuthorJson {
                         id: ticket.id,
-                        count: ticket.count,
                         subject: ticket.subject.clone(),
                         description: ticket.description.clone(),
                         ticktype: ticket.ticktype.to_string(),

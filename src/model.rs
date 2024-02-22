@@ -27,7 +27,6 @@ pub struct NewUser {
 #[diesel(table_name = tickets)]
 pub struct Ticket {
     pub id: i32,
-    pub count: i32,
     pub subject: String,
     pub description: String,
     pub status: StatusType,
@@ -39,7 +38,6 @@ pub struct Ticket {
 #[derive(Insertable)]
 #[diesel(table_name = tickets)]
 pub struct NewTicket {
-    pub count: i32,
     pub subject: String,
     pub description: String,
     pub status: StatusType,

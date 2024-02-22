@@ -8,7 +8,6 @@ use super::user::UserJson;
 #[serde(crate = "rocket::serde")]
 pub struct TicketSelectJson {
     pub id: Option<i32>,
-    pub count: Option<i32>,
     pub author_id: Option<i32>,
     pub subject: Option<String>,
     pub description: Option<String>,
@@ -21,7 +20,6 @@ impl SecretData for TicketSelectJson {}
 #[serde(crate = "rocket::serde")]
 pub struct NewTicketJson {
     pub author_id: i32,
-    pub count: i32,
     pub subject: String,
     pub description: String,
     pub ticktype: String,
@@ -33,7 +31,6 @@ impl SecretData for NewTicketJson {}
 #[serde(crate = "rocket::serde")]
 pub struct TicketWAuthorJson {
     pub id: i32,
-    pub count: i32,
     pub subject: String,
     pub description: String,
     pub ticktype: String,
@@ -46,7 +43,6 @@ impl SecretData for TicketWAuthorJson {}
 #[serde(crate = "rocket::serde")]
 pub struct TicketJson {
     pub id: i32,
-    pub count: i32,
     pub subject: String,
     pub description: String,
     pub ticktype: String,
@@ -58,7 +54,6 @@ impl From<&Ticket> for TicketJson {
     fn from(t: &Ticket) -> Self {
         TicketJson {
             id: t.id,
-            count: t.count,
             subject: t.subject.clone(),
             description: t.description.clone(),
             ticktype: t.ticktype.to_string(),
@@ -71,7 +66,6 @@ impl From<Ticket> for TicketJson {
     fn from(t: Ticket) -> Self {
         TicketJson {
             id: t.id,
-            count: t.count,
             subject: t.subject,
             description: t.description,
             ticktype: t.ticktype.to_string(),
