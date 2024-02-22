@@ -20,7 +20,7 @@ pub struct NewUserJson {
 }
 impl SecretData for NewUserJson {}
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(crate = "rocket::serde")]
 pub struct UserJson {
     pub id: i32,

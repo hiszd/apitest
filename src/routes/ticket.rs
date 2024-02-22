@@ -7,7 +7,6 @@ use crate::types::json::user::UserSelectJson;
 use crate::types::{json::ticket::*, statustype::*, tickettype::*};
 use diesel::prelude::*;
 use rocket::response::status::NoContent;
-use rocket::serde::json::from_str;
 use rocket::serde::json::Json;
 
 fn delete_ticket(
@@ -50,7 +49,7 @@ pub fn new_ticket(ticket: Json<WithSecret<NewTicketJson>>) -> Json<Ticket> {
     // create table entry to tickets for the new ticket
     let tik = diesel::insert_into(tickets::table)
         .values((
-            tickets::count.eq(from_str::<i32>(&ticket.data.count.as_str()).expect("invalid count")),
+            tickets::count.eq(&ticket.data.count),
             tickets::subject.eq(&ticket.data.subject),
             tickets::description.eq(&ticket.data.description),
             tickets::status.eq(StatusType::from(ticket.data.status.clone())),
@@ -63,8 +62,7 @@ pub fn new_ticket(ticket: Json<WithSecret<NewTicketJson>>) -> Json<Ticket> {
     // create table entry to tickets_authors for the relation between the ticket and the author
     diesel::insert_into(tickets_authors::table)
         .values((
-            tickets_authors::author_id
-                .eq(from_str::<i32>(&ticket.data.author_id.as_str()).expect("invalid author id")),
+            tickets_authors::author_id.eq(&ticket.data.author_id),
             tickets_authors::ticket_id.eq(tik.id),
         ))
         .execute(&mut establish_connection())
@@ -131,7 +129,7 @@ pub fn update_ticket_preflight() -> NoContent {
 }
 
 #[post("/ticket/update", data = "<data>")]
-pub fn update_ticket(data: Json<WithSecret<TicketJson>>) -> Result<Json<Ticket>, ()> {
+pub fn update_ticket(data: Json<WithSecret<TicketWAuthorJson>>) -> Result<Json<Ticket>, ()> {
     if data.secret != crate::SECRET {
         println!("Wrong secret: {}, {}", data.secret, crate::SECRET);
         return Err(());
@@ -151,6 +149,14 @@ pub fn update_ticket(data: Json<WithSecret<TicketJson>>) -> Result<Json<Ticket>,
             tickets::ticktype.eq(TicketType::from(data.data.ticktype.clone())),
         ))
         .get_result(&mut establish_connection());
+
+    if data.data.author.is_some() {
+        diesel::update(tickets_authors::table)
+            .filter(tickets_authors::ticket_id.eq(data.data.id))
+            .set(tickets_authors::author_id.eq(data.data.author.as_ref().unwrap().id))
+            .execute(&mut establish_connection())
+            .unwrap();
+    }
 
     match rslt {
         Ok(tik) => {

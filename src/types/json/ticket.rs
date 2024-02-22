@@ -8,8 +8,8 @@ use super::user::UserJson;
 #[serde(crate = "rocket::serde")]
 pub struct TicketSelectJson {
     pub id: Option<i32>,
-    pub author_id: Option<String>,
-    pub count: Option<String>,
+    pub count: Option<i32>,
+    pub author_id: Option<i32>,
     pub subject: Option<String>,
     pub description: Option<String>,
     pub ticktype: Option<String>,
@@ -20,8 +20,8 @@ impl SecretData for TicketSelectJson {}
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(crate = "rocket::serde")]
 pub struct NewTicketJson {
-    pub author_id: String,
-    pub count: String,
+    pub author_id: i32,
+    pub count: i32,
     pub subject: String,
     pub description: String,
     pub ticktype: String,
