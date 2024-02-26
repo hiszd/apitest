@@ -1,0 +1,7 @@
+reorder_imports = true
+reorder_modules = true
+group_imports = "StdExternalCrate"
+use_field_init_shorthand = true
+use_try_shorthand = true
+wrap_comments = true
+tab_spaces = 2
