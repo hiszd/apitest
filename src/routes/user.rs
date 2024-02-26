@@ -1,3 +1,6 @@
+// use rocket::futures::FutureExt;
+use rocket::tokio::sync::Mutex;
+
 use diesel::prelude::*;
 use rocket::response::status::NoContent;
 
@@ -6,7 +9,12 @@ use crate::model::*;
 use crate::schema::*;
 use crate::types::json::shared::WithSecret;
 use crate::types::json::user::*;
+use crate::MyConfig;
+#[allow(unused_imports)]
+use rocket::futures::{SinkExt, StreamExt};
 use rocket::serde::json::Json;
+
+static STATE: Mutex<MyConfig> = Mutex::const_new(MyConfig::const_new());
 
 fn delete_user(user_id: i32, conn: &mut PgConnection) -> Result<Json<User>, diesel::result::Error> {
     println!("Deleting user {}", user_id);
@@ -198,4 +206,35 @@ pub fn remove_user(data: Json<WithSecret<UserSelectJson>>) -> Result<Json<User>,
 #[options("/user/remove")]
 pub fn remove_user_preflight() -> NoContent {
     NoContent
+}
+
+#[get("/user/reset")]
+pub async fn reset_users() -> NoContent {
+    println!("Reset users start");
+    STATE.lock().await.set_users_update(true);
+    println!("Reset users");
+    NoContent
+}
+
+#[get("/user/stream")]
+pub fn user_stream<'r>(ws: rocket_ws::WebSocket) -> rocket_ws::Channel<'r> {
+    ws.channel(move |mut stream| {
+        Box::pin(async move {
+            let _ = stream
+                .send(rocket_ws::Message::text("hello".to_string()))
+                .await;
+            loop {
+                let update_users = STATE.lock().await.get_users_update();
+                if update_users {
+                    println!("Sending update");
+                    stream
+                        .send(rocket_ws::Message::text("refresh".to_string()))
+                        .await
+                        .unwrap();
+                    STATE.lock().await.set_users_update(false);
+                }
+                rocket::tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            }
+        })
+    })
 }

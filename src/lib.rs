@@ -16,6 +16,44 @@ pub mod routes;
 pub mod schema;
 pub mod types;
 
+pub struct MyConfig {
+    users_update: bool,
+    tickets_update: bool,
+    subscribers: Vec<Box<dyn FnOnce()>>,
+}
+
+impl MyConfig {
+    pub fn new() -> MyConfig {
+        MyConfig {
+            users_update: false,
+            tickets_update: false,
+            subscribers: Vec::new(),
+        }
+    }
+    pub const fn const_new() -> MyConfig {
+        MyConfig {
+            users_update: false,
+            tickets_update: false,
+            subscribers: Vec::new(),
+        }
+    }
+    pub fn subscribe(&mut self, func: Box<dyn FnOnce()>) {
+        self.subscribers.push(func);
+    }
+    pub fn get_users_update(&self) -> bool {
+        self.users_update
+    }
+    pub fn set_users_update(&mut self, value: bool) {
+        self.users_update = value;
+    }
+    pub fn get_tickets_update(&self) -> bool {
+        self.tickets_update
+    }
+    pub fn set_tickets_update(&mut self, value: bool) {
+        self.tickets_update = value;
+    }
+}
+
 pub fn add_headers<'r>(response: &'r mut Response<'r>) -> &'r mut rocket::Response<'r> {
     response.set_header(Header::new("Access-Control-Allow-Origin", "*"));
     response.set_header(Header::new(
