@@ -16,7 +16,7 @@ pub mod routes;
 pub mod schema;
 pub mod types;
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub enum Topic {
   Users,
   Tickets,
@@ -46,6 +46,7 @@ pub enum Topic {
 //   }
 // }
 
+#[derive(Debug, Clone)]
 pub struct Subscriber {
   pub name: String,
   pub id: String,
@@ -65,52 +66,58 @@ impl Subscriber {
 }
 
 pub struct CustState {
-  users_update: bool,
-  tickets_update: bool,
   subscribers: Vec<Subscriber>,
 }
 
 impl CustState {
   pub fn new() -> CustState {
     CustState {
-      users_update: false,
-      tickets_update: false,
       subscribers: Vec::new(),
     }
   }
   pub const fn const_new() -> CustState {
     CustState {
-      users_update: false,
-      tickets_update: false,
       subscribers: Vec::new(),
     }
   }
-  pub fn subscribe(&mut self, name: &str, topic: Topic) -> &str {
+  pub fn subscribe(&mut self, name: &str, topic: Topic) -> String {
     let sub = Subscriber::new(name, topic);
-    self.subscribers.push(sub);
-    sub.id.as_str()
+    println!("Creating subscriber: {:?}", sub);
+    self.subscribers.push(sub.clone());
+    sub.id
   }
   pub fn unsubscribe(&mut self, id: &str) {
     self.subscribers.retain(|s| s.id != id);
   }
   pub fn trigger_update(&mut self, topic: Topic) {
-    self.subscribers.iter_mut().map(|s| {
-      if s.topic == topic {
-        s.needs_update = true
-      }
-    });
+    self.subscribers = self
+      .subscribers
+      .iter()
+      .map(|s| {
+        let mut sbs = s.clone();
+        if sbs.topic == topic {
+          sbs.needs_update = true
+        }
+        println!("Updating subscriber: {:?}", sbs);
+        sbs.to_owned()
+      })
+      .collect();
+    println!("Subscribers: {:?}", self.subscribers);
   }
   pub fn check_update(&mut self, id: &str) -> bool {
     let mut rtrn = false;
-    self
+    self.subscribers = self
       .subscribers
-      .iter_mut()
-      .find(|s| s.id == id)
-      .map(|s| {
-        s.needs_update = false;
-        rtrn = s.needs_update
+      .iter()
+      .map(|sb| {
+        let mut s = sb.clone();
+        if s.id == id {
+          rtrn = s.needs_update;
+          s.needs_update = false;
+        }
+        s
       })
-      .unwrap();
+      .collect();
     rtrn
   }
 }

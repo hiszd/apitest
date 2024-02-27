@@ -226,7 +226,7 @@ pub fn user_stream<'r>(ws: rocket_ws::WebSocket) -> rocket_ws::Channel<'r> {
         .send(rocket_ws::Message::text("hello".to_string()))
         .await;
       loop {
-        let update_users = STATE.lock().await.check_update(id);
+        let update_users = STATE.lock().await.check_update(&id);
         if update_users {
           println!("Sending update");
           stream
@@ -234,7 +234,8 @@ pub fn user_stream<'r>(ws: rocket_ws::WebSocket) -> rocket_ws::Channel<'r> {
             .await
             .unwrap();
         }
-        rocket::tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        // rocket::tokio::time::sleep(std::time::Duration::from_millis(500)).
+        // await;
       }
     })
   })
