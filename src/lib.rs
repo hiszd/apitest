@@ -3,6 +3,7 @@ use std::env;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use dotenvy::dotenv;
+use rocket::tokio::sync::Mutex;
 use uuid::Uuid;
 
 extern crate tera;
@@ -16,51 +17,71 @@ pub mod routes;
 pub mod schema;
 pub mod types;
 
+pub static STATE: Mutex<CustState> = Mutex::const_new(CustState::const_new());
+
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum Topic {
   Users,
   Tickets,
 }
 
-// impl From<String> for Topic {
-//   fn from(s: String) -> Self {
-//     match s {
-//       String::from("users") => Topic::Users,
-//       String::from("Users") => Topic::Users,
-//       String::from("tickets") => Topic::Tickets,
-//       String::from("Tickets") => Topic::Tickets,
-//       _ => Topic::Users,
-//     }
-//   }
-// }
+impl From<Topic> for String {
+  fn from(t: Topic) -> Self {
+    match t {
+      Topic::Users => "users".to_string(),
+      Topic::Tickets => "tickets".to_string(),
+    }
+  }
+}
 
-// impl From<&str> for Topic {
-//   fn from(s: &str) -> Self {
-//     match s {
-//       "users" => Topic::Users,
-//       "Users" => Topic::Users,
-//       "tickets" => Topic::Tickets,
-//       "Tickets" => Topic::Tickets,
-//       _ => Topic::Users,
-//     }
-//   }
-// }
+impl From<Topic> for &str {
+  fn from(t: Topic) -> Self {
+    match t {
+      Topic::Users => "users",
+      Topic::Tickets => "tickets",
+    }
+  }
+}
+
+impl TryFrom<String> for Topic {
+  type Error = ();
+  fn try_from(s: String) -> Result<Self, Self::Error> {
+    match s.as_str() {
+      "users" => Ok(Topic::Users),
+      "Users" => Ok(Topic::Users),
+      "tickets" => Ok(Topic::Tickets),
+      "Tickets" => Ok(Topic::Tickets),
+      _ => Err(()),
+    }
+  }
+}
+
+impl TryFrom<&str> for Topic {
+  type Error = ();
+  fn try_from(s: &str) -> Result<Self, Self::Error> {
+    match s {
+      "users" => Ok(Topic::Users),
+      "Users" => Ok(Topic::Users),
+      "tickets" => Ok(Topic::Tickets),
+      "Tickets" => Ok(Topic::Tickets),
+      _ => Err(()),
+    }
+  }
+}
 
 #[derive(Debug, Clone)]
 pub struct Subscriber {
   pub name: String,
   pub id: String,
-  pub topic: Topic,
-  pub needs_update: bool,
+  pub topics: Vec<(Topic, bool)>,
 }
 
 impl Subscriber {
-  pub fn new(name: &str, topic: Topic) -> Subscriber {
+  pub fn new(name: &str, topics: Vec<Topic>) -> Subscriber {
     Subscriber {
       name: name.to_string(),
       id: Uuid::new_v4().to_string(),
-      needs_update: false,
-      topic,
+      topics: topics.iter().map(|t| (*t, false)).collect(),
     }
   }
 }
@@ -80,8 +101,8 @@ impl CustState {
       subscribers: Vec::new(),
     }
   }
-  pub fn subscribe(&mut self, name: &str, topic: Topic) -> String {
-    let sub = Subscriber::new(name, topic);
+  pub fn subscribe(&mut self, name: &str, topics: Vec<Topic>) -> String {
+    let sub = Subscriber::new(name, topics);
     println!("Creating subscriber: {:?}", sub);
     self.subscribers.push(sub.clone());
     sub.id
@@ -89,33 +110,53 @@ impl CustState {
   pub fn unsubscribe(&mut self, id: &str) {
     self.subscribers.retain(|s| s.id != id);
   }
-  pub fn trigger_update(&mut self, topic: Topic) {
+  pub fn trigger_update(&mut self, topics: Vec<Topic>) {
     self.subscribers = self
       .subscribers
       .iter()
       .map(|s| {
         let mut sbs = s.clone();
-        if sbs.topic == topic {
-          sbs.needs_update = true
+        for tp in topics.iter() {
+          sbs.topics = sbs
+            .topics
+            .iter()
+            .map(|top| {
+              let mut t = top.clone();
+              if &t.0 == tp {
+                t.1 = true;
+              }
+              t
+            })
+            .collect();
         }
         println!("Updating subscriber: {:?}", sbs);
-        sbs.to_owned()
+        sbs.clone()
       })
       .collect();
     println!("Subscribers: {:?}", self.subscribers);
   }
-  pub fn check_update(&mut self, id: &str) -> bool {
-    let mut rtrn = false;
+  pub fn check_subscriber(&mut self, id: &str, topics: Vec<Topic>) -> Vec<Topic> {
+    let mut rtrn: Vec<Topic> = Vec::new();
     self.subscribers = self
       .subscribers
       .iter()
-      .map(|sb| {
-        let mut s = sb.clone();
+      .map(|sbs| {
+        let mut s = sbs.clone();
         if s.id == id {
-          rtrn = s.needs_update;
-          s.needs_update = false;
+          s.topics = s
+            .topics
+            .iter()
+            .map(|tpc| {
+              let mut t = tpc.clone();
+              if t.1 && topics.contains(&t.0) {
+                rtrn.push(t.0);
+                t.1 = false;
+              }
+              t
+            })
+            .collect();
         }
-        s
+        s.clone()
       })
       .collect();
     rtrn

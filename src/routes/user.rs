@@ -4,17 +4,14 @@ use diesel::prelude::*;
 use rocket::futures::{SinkExt, StreamExt};
 use rocket::response::status::NoContent;
 use rocket::serde::json::Json;
-use rocket::tokio::sync::Mutex;
 
 use crate::establish_connection;
 use crate::model::*;
 use crate::schema::*;
 use crate::types::json::shared::WithSecret;
 use crate::types::json::user::*;
-use crate::CustState;
 use crate::Topic;
-
-static STATE: Mutex<CustState> = Mutex::const_new(CustState::const_new());
+use crate::STATE;
 
 async fn delete_user(
   user_id: i32,
@@ -58,7 +55,7 @@ async fn delete_user(
     println!("User not removed");
     Err(del_user.err().unwrap())
   } else {
-    STATE.lock().await.trigger_update(Topic::Users);
+    STATE.lock().await.trigger_update(vec![Topic::Users]);
     println!("Reset users");
     Ok(Json(usr.unwrap()))
   }
@@ -87,7 +84,7 @@ pub async fn new_user(user: Json<WithSecret<NewUserJson>>) -> Json<User> {
     .returning(User::as_returning())
     .get_result(&mut establish_connection());
 
-  STATE.lock().await.trigger_update(Topic::Users);
+  STATE.lock().await.trigger_update(vec![Topic::Users]);
   println!("Reset users");
 
   Json(usr.unwrap())
@@ -114,7 +111,7 @@ pub async fn update_user(data: Json<WithSecret<UserJson>>) -> Result<Json<User>,
     ))
     .get_result(&mut establish_connection());
 
-  STATE.lock().await.trigger_update(Topic::Users);
+  STATE.lock().await.trigger_update(vec![Topic::Users]);
   println!("Reset users");
 
   match rslt {
@@ -212,29 +209,7 @@ pub fn remove_user_preflight() -> NoContent {
 #[get("/user/reset")]
 pub async fn reset_users() -> NoContent {
   println!("Reset users start");
-  STATE.lock().await.trigger_update(Topic::Users);
+  STATE.lock().await.trigger_update(vec![Topic::Users]);
   println!("Reset users");
   NoContent
-}
-
-#[get("/user/stream")]
-pub fn user_stream<'r>(ws: rocket_ws::WebSocket) -> rocket_ws::Channel<'r> {
-  ws.channel(move |mut stream| {
-    Box::pin(async move {
-      let id = STATE.lock().await.subscribe("stream", Topic::Users);
-      let _ = stream
-        .send(rocket_ws::Message::text("hello".to_string()))
-        .await;
-      loop {
-        let update_users = STATE.lock().await.check_update(&id);
-        if update_users {
-          println!("Sending update");
-          stream
-            .send(rocket_ws::Message::text("refresh".to_string()))
-            .await
-            .unwrap();
-        }
-      }
-    })
-  })
 }

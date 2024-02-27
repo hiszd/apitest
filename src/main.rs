@@ -47,7 +47,6 @@ fn default_catcher(status: Status, req: &Request<'_>) -> status::Custom<String> 
 #[launch]
 fn rocket() -> _ {
   rocket::build()
-    .attach(CORS)
     .attach(Template::fairing())
     .mount(
       "/",
@@ -63,7 +62,6 @@ fn rocket() -> _ {
         user::remove_user,
         user::remove_user_preflight,
         user::reset_users,
-        user::user_stream,
         ticket::update_ticket,
         ticket::update_ticket_preflight,
         ticket::new_ticket,
@@ -72,9 +70,10 @@ fn rocket() -> _ {
         ticket::list_tickets,
         ticket::list_tickets_preflight,
         ticket::remove_ticket_by_id,
+        ticket::reset_tickets,
+        shared::sock,
       ],
     )
-    .attach(CORS)
     .register("/", catchers![default_catcher])
     .attach(CORS)
 }
