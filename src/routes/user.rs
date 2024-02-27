@@ -16,7 +16,10 @@ use crate::Topic;
 
 static STATE: Mutex<CustState> = Mutex::const_new(CustState::const_new());
 
-fn delete_user(user_id: i32, conn: &mut PgConnection) -> Result<Json<User>, diesel::result::Error> {
+async fn delete_user(
+  user_id: i32,
+  conn: &mut PgConnection,
+) -> Result<Json<User>, diesel::result::Error> {
   println!("Deleting user {}", user_id);
   let usr = users::table
     .filter(users::id.eq(user_id))
@@ -55,20 +58,10 @@ fn delete_user(user_id: i32, conn: &mut PgConnection) -> Result<Json<User>, dies
     println!("User not removed");
     Err(del_user.err().unwrap())
   } else {
+    STATE.lock().await.trigger_update(Topic::Users);
+    println!("Reset users");
     Ok(Json(usr.unwrap()))
   }
-}
-#[get("/user/new/test")]
-pub fn new_user_test() -> Json<User> {
-  let newuser = NewUser {
-    name: "test".to_string(),
-    email: "test@test.com".to_string(),
-  };
-  let usr = diesel::insert_into(users::table)
-    .values(&newuser)
-    .returning(User::as_returning())
-    .get_result(&mut establish_connection());
-  Json(usr.unwrap())
 }
 
 #[options("/user/new")]
@@ -77,7 +70,7 @@ pub fn new_user_preflight() -> NoContent {
 }
 
 #[post("/user/new", data = "<user>")]
-pub fn new_user(user: Json<WithSecret<NewUserJson>>) -> Json<User> {
+pub async fn new_user(user: Json<WithSecret<NewUserJson>>) -> Json<User> {
   assert!(
     user.secret == crate::SECRET,
     "Wrong secret: {}, {}",
@@ -93,6 +86,10 @@ pub fn new_user(user: Json<WithSecret<NewUserJson>>) -> Json<User> {
     .values(&newuser)
     .returning(User::as_returning())
     .get_result(&mut establish_connection());
+
+  STATE.lock().await.trigger_update(Topic::Users);
+  println!("Reset users");
+
   Json(usr.unwrap())
 }
 
@@ -102,7 +99,7 @@ pub fn update_user_preflight() -> NoContent {
 }
 
 #[post("/user/update", data = "<data>")]
-pub fn update_user(data: Json<WithSecret<UserJson>>) -> Result<Json<User>, ()> {
+pub async fn update_user(data: Json<WithSecret<UserJson>>) -> Result<Json<User>, ()> {
   if data.secret != crate::SECRET {
     println!("Wrong secret: {}, {}", data.secret, crate::SECRET);
     return Err(());
@@ -116,6 +113,9 @@ pub fn update_user(data: Json<WithSecret<UserJson>>) -> Result<Json<User>, ()> {
       users::email.eq(data.data.email.clone()),
     ))
     .get_result(&mut establish_connection());
+
+  STATE.lock().await.trigger_update(Topic::Users);
+  println!("Reset users");
 
   match rslt {
     Ok(usr) => {
@@ -171,7 +171,7 @@ pub fn list_users_preflight() -> NoContent {
 }
 
 #[post("/user/remove", data = "<data>")]
-pub fn remove_user(data: Json<WithSecret<UserSelectJson>>) -> Result<Json<User>, ()> {
+pub async fn remove_user(data: Json<WithSecret<UserSelectJson>>) -> Result<Json<User>, ()> {
   println!("{:?}", data);
 
   let conn = &mut establish_connection();
@@ -195,7 +195,7 @@ pub fn remove_user(data: Json<WithSecret<UserSelectJson>>) -> Result<Json<User>,
 
   let user: User = fltr.first(conn).expect("Error loading users");
 
-  match delete_user(user.id, conn) {
+  match delete_user(user.id, conn).await {
     Ok(usr) => Ok(usr),
     Err(e) => {
       println!("Error: {}", e);
@@ -234,8 +234,6 @@ pub fn user_stream<'r>(ws: rocket_ws::WebSocket) -> rocket_ws::Channel<'r> {
             .await
             .unwrap();
         }
-        // rocket::tokio::time::sleep(std::time::Duration::from_millis(500)).
-        // await;
       }
     })
   })
