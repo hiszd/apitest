@@ -5,6 +5,7 @@ use rocket::serde::json::Json;
 use crate::establish_connection;
 use crate::model::*;
 use crate::schema::*;
+use crate::types::json::shared::JustSecret;
 use crate::types::json::shared::WithSecret;
 use crate::types::json::user::UserJson;
 use crate::types::json::user::UserSelectJson;
@@ -46,9 +47,44 @@ fn delete_ticket(
 pub fn new_ticket_preflight() -> NoContent {
   NoContent
 }
-
 #[post("/ticket/new", data = "<ticket>")]
-pub async fn new_ticket(ticket: Json<WithSecret<NewTicketJson>>) -> Json<Ticket> {
+pub async fn new_ticket(
+  ticket: Json<WithSecret<NewTicketJson>>,
+) -> Result<Json<TicketWithUsersJson>, ()> {
+  println!("{:?}", ticket);
+  if ticket.secret != crate::SECRET {
+    println!("Wrong secret: {}, {}", ticket.secret, crate::SECRET);
+    return Err(());
+  }
+  let conn = &mut establish_connection();
+  // check to see if author exists
+  let athrpre: Result<User, diesel::result::Error> = users::table
+    .filter(users::id.eq(&ticket.data.author_id))
+    .select(User::as_select())
+    .get_result(conn);
+  if athrpre.is_err() {
+    println!("Author not found");
+    return Err(());
+  }
+  let athr = UserJson::from(athrpre.unwrap());
+  // check to see if agent was specified and exists
+  let mut agntpre: Option<Result<User, diesel::result::Error>> = None;
+  if ticket.data.agent_id.is_some() {
+    let agnttmp = users::table
+      .filter(users::id.eq(&ticket.data.author_id))
+      .select(User::as_select())
+      .get_result(conn);
+    if agnttmp.is_err() {
+      println!("Author not found");
+      return Err(());
+    }
+    agntpre = Some(agnttmp);
+  }
+  let mut agnt: Option<UserJson> = None;
+  if agntpre.is_some() {
+    agnt = Some(UserJson::from(agntpre.unwrap().unwrap()));
+  }
+
   // create table entry to tickets for the new ticket
   let tik = diesel::insert_into(tickets::table)
     .values((
@@ -58,38 +94,52 @@ pub async fn new_ticket(ticket: Json<WithSecret<NewTicketJson>>) -> Json<Ticket>
       tickets::ticktype.eq(TicketType::from(ticket.data.ticktype.clone())),
     ))
     .returning(Ticket::as_returning())
-    .get_result(&mut establish_connection())
-    .unwrap();
+    .get_result(conn);
+  if tik.is_err() {
+    println!("Ticket not created");
+    return Err(());
+  }
+  let tunwrap = tik.unwrap();
 
   // create table entry to tickets_authors for the relation between the ticket and
   // the author
-  diesel::insert_into(tickets_authors::table)
+  let ins = diesel::insert_into(tickets_authors::table)
     .values((
       tickets_authors::author_id.eq(&ticket.data.author_id),
-      tickets_authors::ticket_id.eq(tik.id),
+      tickets_authors::ticket_id.eq(tunwrap.id),
     ))
-    .execute(&mut establish_connection())
-    .unwrap();
-  STATE.lock().await.trigger_update(vec![Topic::Tickets]);
-  Json(tik)
-}
+    .execute(conn);
+  if ins.is_err() {
+    println!("Association not created");
+    match delete_ticket(tunwrap.id, conn) {
+      Ok(_) => {
+        println!("Ticket deleted");
+        return Err(());
+      }
+      Err(_) => {
+        println!("Ticket NOT deleted");
+        return Err(());
+      }
+    }
+  }
+  let tik = TicketWithUsersJson {
+    id: tunwrap.id,
+    subject: tunwrap.subject.clone(),
+    description: tunwrap.description.clone(),
+    ticktype: tunwrap.ticktype.to_string(),
+    status: tunwrap.status.to_string(),
+    author: athr,
+    agent: agnt,
+  };
 
-#[get("/ticket/<id>")]
-pub fn get_ticket_by_id(id: i32) -> Json<Ticket> {
-  Json(
-    tickets::table
-      .filter(tickets::id.eq(id))
-      .select(Ticket::as_select())
-      .get_result(&mut establish_connection())
-      .unwrap(),
-  )
+  STATE.lock().await.trigger_update(vec![Topic::Tickets]);
+  Ok(Json(tik))
 }
 
 #[options("/ticket/list/author")]
 pub fn get_tickets_by_author_preflight() -> NoContent {
   NoContent
 }
-
 #[post("/ticket/list/author", data = "<data>")]
 pub fn get_tickets_by_author(
   data: Json<WithSecret<UserSelectJson>>,
@@ -110,7 +160,6 @@ pub fn get_tickets_by_author(
     fltr = fltr.filter(users::email.eq(f));
   }
   let user: Result<User, diesel::result::Error> = fltr.first(&mut establish_connection());
-
   match user {
     Ok(u) => {
       let rslt = tickets_authors::table
@@ -127,13 +176,54 @@ pub fn get_tickets_by_author(
   }
 }
 
+#[options("/ticket/list/agent")]
+pub fn get_tickets_by_agent_preflight() -> NoContent {
+  NoContent
+}
+#[post("/ticket/list/agent", data = "<data>")]
+pub fn get_tickets_by_agent(
+  data: Json<WithSecret<UserSelectJson>>,
+) -> Result<Json<Vec<Ticket>>, ()> {
+  println!("{:?}", data);
+  if data.secret != crate::SECRET {
+    println!("Wrong secret: {}, {}", data.secret, crate::SECRET);
+    return Err(());
+  }
+  let mut fltr = users::table.into_boxed();
+  if let Some(f) = data.data.id {
+    fltr = fltr.filter(users::id.eq(f));
+  }
+  if let Some(f) = &data.data.name {
+    fltr = fltr.filter(users::name.eq(f));
+  }
+  if let Some(f) = &data.data.email {
+    fltr = fltr.filter(users::email.eq(f));
+  }
+  let user: Result<User, diesel::result::Error> = fltr.first(&mut establish_connection());
+  match user {
+    Ok(u) => {
+      let rslt = tickets_agents::table
+        .inner_join(tickets::table)
+        .filter(tickets_agents::agent_id.eq(u.id))
+        .select(Ticket::as_select())
+        .load(&mut establish_connection());
+      match rslt {
+        Ok(tik) => Ok(Json(tik)),
+        Err(_) => Err(()),
+      }
+    }
+    Err(_) => Err(()),
+  }
+}
+
 #[options("/ticket/update")]
 pub fn update_ticket_preflight() -> NoContent {
   NoContent
 }
-
 #[post("/ticket/update", data = "<data>")]
-pub async fn update_ticket(data: Json<WithSecret<TicketWAuthorJson>>) -> Result<Json<Ticket>, ()> {
+pub async fn update_ticket(
+  data: Json<WithSecret<TicketWithUsersJson>>,
+) -> Result<Json<Ticket>, ()> {
   if data.secret != crate::SECRET {
     println!("Wrong secret: {}, {}", data.secret, crate::SECRET);
     return Err(());
@@ -154,13 +244,11 @@ pub async fn update_ticket(data: Json<WithSecret<TicketWAuthorJson>>) -> Result<
     ))
     .get_result(&mut establish_connection());
 
-  if data.data.author.is_some() {
-    diesel::update(tickets_authors::table)
-      .filter(tickets_authors::ticket_id.eq(data.data.id))
-      .set(tickets_authors::author_id.eq(data.data.author.as_ref().unwrap().id))
-      .execute(&mut establish_connection())
-      .unwrap();
-  }
+  diesel::update(tickets_authors::table)
+    .filter(tickets_authors::ticket_id.eq(data.data.id))
+    .set(tickets_authors::author_id.eq(data.data.author.id))
+    .execute(&mut establish_connection())
+    .unwrap();
 
   match rslt {
     Ok(tik) => {
@@ -176,14 +264,16 @@ pub async fn update_ticket(data: Json<WithSecret<TicketWAuthorJson>>) -> Result<
 pub fn get_ticket_preflight() -> NoContent {
   NoContent
 }
-
 #[post("/ticket/get", data = "<data>")]
-pub fn get_ticket(data: Json<WithSecret<TicketSelectJson>>) -> Result<Json<Ticket>, ()> {
+pub fn get_ticket(
+  data: Json<WithSecret<TicketSelectJson>>,
+) -> Result<Json<TicketWithUsersJson>, ()> {
   println!("{:?}", data);
   if data.secret != crate::SECRET {
     println!("Wrong secret: {}, {}", data.secret, crate::SECRET);
     return Err(());
   }
+  let conn = &mut establish_connection();
   let mut fltr = tickets::table.into_boxed();
   if let Some(id) = data.data.id {
     fltr = fltr.filter(tickets::id.eq(id));
@@ -200,71 +290,104 @@ pub fn get_ticket(data: Json<WithSecret<TicketSelectJson>>) -> Result<Json<Ticke
   if let Some(ticktype) = &data.data.ticktype {
     fltr = fltr.filter(tickets::ticktype.eq(TicketType::from(ticktype.clone())));
   }
-  let rslt = fltr.first(&mut establish_connection());
-  match rslt {
-    Ok(tik) => Ok(Json(tik)),
-    Err(_) => Err(()),
+  let rslt = fltr.first(conn);
+  if rslt.is_err() {
+    println!("Ticket not found. Error: {:?}", rslt.unwrap_err());
+    return Err(());
   }
+
+  Ok(Json(
+    TicketWithUsersJson::from_ticket(&rslt.unwrap(), Some(conn)).unwrap(),
+  ))
 }
 
 #[options("/ticket/list/all")]
 pub fn list_tickets_preflight() -> NoContent {
   NoContent
 }
-
 // TODO: when there are no users that have tickets assigned, then no tickets are
 // returned. this is very wrong. WORK on this!!
-#[get("/ticket/list/all")]
-pub fn list_tickets<'r>() -> String {
-  let users = users::table
-    .select(User::as_select())
-    .load(&mut establish_connection())
-    .unwrap();
-  let tickets: Vec<TicketWAuthorJson> = users.iter().fold(Vec::new(), |mut acc, user| {
-    let tickets = tickets_authors::table
+#[post("/ticket/list/all", data = "<data>")]
+pub fn list_tickets<'r>(data: Json<JustSecret>) -> Result<Json<Vec<TicketWithUsersJson>>, ()> {
+  if data.secret != crate::SECRET {
+    println!("Wrong secret: {}, {}", data.secret, crate::SECRET);
+    return Err(());
+  }
+  let conn = &mut establish_connection();
+  let users = users::table.select(User::as_select()).load(conn).unwrap();
+  let tickets: Vec<TicketWithUsersJson> = users.iter().fold(Vec::new(), |mut acc, user| {
+    let ticketspre = tickets_authors::table
       .filter(tickets_authors::author_id.eq(user.id))
       .inner_join(tickets::table)
       .select(Ticket::as_select())
-      .load(&mut establish_connection());
-    if tickets.is_err() {
+      .load(conn);
+    if ticketspre.is_err() {
       acc
     } else {
-      let tickets_w_author: Vec<TicketWAuthorJson> =
-        tickets.unwrap().iter().fold(Vec::new(), |mut acc, ticket| {
-          let tik = TicketWAuthorJson {
-            id: ticket.id,
-            subject: ticket.subject.clone(),
-            description: ticket.description.clone(),
-            ticktype: ticket.ticktype.to_string(),
-            status: ticket.status.to_string(),
-            author: Some(UserJson::from(user)),
-          };
-          acc.push(tik);
-          acc
-        });
-      acc.extend(tickets_w_author);
+      let tickets: Vec<TicketWithUsersJson> =
+        ticketspre
+          .unwrap()
+          .iter()
+          .fold(Vec::new(), |mut acc, ticket| {
+            acc.push(TicketWithUsersJson::from_ticket(ticket, Some(conn)).unwrap());
+            acc
+          });
+      acc.extend(tickets);
       acc
     }
   });
   println!("TICKETS: {:?}", tickets);
-  rocket::serde::json::serde_json::to_string(&tickets).unwrap()
+  Ok(Json(tickets))
 }
 
-#[get("/ticket/remove/<id>")]
-pub fn remove_ticket_by_id(id: i32) -> Option<Json<Ticket>> {
+#[options("/ticket/remove")]
+pub fn remove_ticket_preflight() -> NoContent {
+  NoContent
+}
+#[post("/ticket/remove", data = "<data>")]
+pub async fn remove_ticket(data: Json<WithSecret<TicketSelectJson>>) -> Result<Json<Ticket>, ()> {
+  println!("{:?}", data);
+  if data.secret != crate::SECRET {
+    println!("Wrong secret: {}, {}", data.secret, crate::SECRET);
+    return Err(());
+  }
   let conn = &mut establish_connection();
-  match delete_ticket(id, conn) {
-    Ok(tik) => Some(tik),
-    Err(e) => {
-      println!("Error: {}", e);
-      None
-    }
+  let mut fltr = tickets::table.into_boxed();
+  if let Some(id) = data.data.id {
+    fltr = fltr.filter(tickets::id.eq(id));
+  }
+  if let Some(subject) = &data.data.subject {
+    fltr = fltr.filter(tickets::subject.eq(subject));
+  }
+  if let Some(description) = &data.data.description {
+    fltr = fltr.filter(tickets::description.eq(description));
+  }
+  if let Some(status) = &data.data.status {
+    fltr = fltr.filter(tickets::status.eq(StatusType::from(status.clone())));
+  }
+  if let Some(ticktype) = &data.data.ticktype {
+    fltr = fltr.filter(tickets::ticktype.eq(TicketType::from(ticktype.clone())));
+  }
+  let rslt: Result<Ticket, diesel::result::Error> = fltr.first(&mut establish_connection());
+  match rslt {
+    Ok(tik) => match delete_ticket(tik.id, conn) {
+      Ok(tik) => {
+        STATE.lock().await.trigger_update(vec![Topic::Tickets]);
+        println!("Updated ticket {:?}", tik);
+        Ok(tik)
+      }
+      Err(e) => {
+        println!("Error: {}", e);
+        Err(())
+      }
+    },
+    Err(_) => Err(()),
   }
 }
 
 #[get("/ticket/reset")]
 pub async fn reset_tickets() -> NoContent {
   STATE.lock().await.trigger_update(vec![Topic::Tickets]);
-  println!("Reset users");
+  println!("Reset tickets");
   NoContent
 }
