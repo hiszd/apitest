@@ -11,6 +11,7 @@ use crate::types::json::user::UserJson;
 use crate::types::json::user::UserSelectJson;
 use crate::types::{json::ticket::*, statustype::*, tickettype::*};
 use crate::Topic;
+use crate::Update;
 use crate::STATE;
 
 fn delete_ticket(
@@ -132,7 +133,10 @@ pub async fn new_ticket(
     agent: agnt,
   };
 
-  STATE.lock().await.trigger_update(vec![Topic::Tickets]);
+  STATE.lock().await.trigger_update(Update {
+    topic: Topic::Tickets,
+    ids: vec![tunwrap.id.to_string()],
+  });
   Ok(Json(tik))
 }
 
@@ -242,7 +246,7 @@ pub async fn update_ticket(
       tickets::status.eq(StatusType::from(data.data.status.clone())),
       tickets::ticktype.eq(TicketType::from(data.data.ticktype.clone())),
     ))
-    .get_result(&mut establish_connection());
+    .get_result::<Ticket>(&mut establish_connection());
 
   diesel::update(tickets_authors::table)
     .filter(tickets_authors::ticket_id.eq(data.data.id))
@@ -252,7 +256,10 @@ pub async fn update_ticket(
 
   match rslt {
     Ok(tik) => {
-      STATE.lock().await.trigger_update(vec![Topic::Tickets]);
+      STATE.lock().await.trigger_update(Update {
+        topic: Topic::Tickets,
+        ids: vec![tik.id.to_string()],
+      });
       println!("Updated ticket {:?}", tik);
       Ok(Json(tik))
     }
@@ -372,7 +379,10 @@ pub async fn remove_ticket(data: Json<WithSecret<TicketSelectJson>>) -> Result<J
   match rslt {
     Ok(tik) => match delete_ticket(tik.id, conn) {
       Ok(tik) => {
-        STATE.lock().await.trigger_update(vec![Topic::Tickets]);
+        STATE.lock().await.trigger_update(Update {
+          topic: Topic::Tickets,
+          ids: vec![tik.id.to_string()],
+        });
         println!("Updated ticket {:?}", tik);
         Ok(tik)
       }
@@ -383,11 +393,4 @@ pub async fn remove_ticket(data: Json<WithSecret<TicketSelectJson>>) -> Result<J
     },
     Err(_) => Err(()),
   }
-}
-
-#[get("/ticket/reset")]
-pub async fn reset_tickets() -> NoContent {
-  STATE.lock().await.trigger_update(vec![Topic::Tickets]);
-  println!("Reset tickets");
-  NoContent
 }

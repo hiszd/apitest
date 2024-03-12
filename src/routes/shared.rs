@@ -41,13 +41,15 @@ pub fn sock<'r>(ws: rocket_ws::WebSocket) -> rocket_ws::Channel<'r> {
         }
       }
       loop {
-        let update_topics = STATE.lock().await.check_subscriber(&id, v.clone());
-        if !update_topics.is_empty() {
-          for t in update_topics {
-            stream
-              .send(rocket_ws::Message::text(String::from(t)))
-              .await
-              .unwrap();
+        for tpc in v.clone() {
+          let update_topics = STATE.lock().await.check_subscriber(&id, tpc);
+          if !update_topics.is_empty() {
+            for t in update_topics {
+              stream
+                .send(rocket_ws::Message::text(String::from(t)))
+                .await
+                .unwrap();
+            }
           }
         }
       }

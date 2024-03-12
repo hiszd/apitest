@@ -11,6 +11,7 @@ use crate::schema::*;
 use crate::types::json::shared::WithSecret;
 use crate::types::json::user::*;
 use crate::Topic;
+use crate::Update;
 use crate::STATE;
 
 async fn delete_user(
@@ -55,7 +56,10 @@ async fn delete_user(
     println!("User not removed");
     Err(del_user.err().unwrap())
   } else {
-    STATE.lock().await.trigger_update(vec![Topic::Users]);
+    STATE.lock().await.trigger_update(Update {
+      topic: Topic::Users,
+      ids: vec![user_id.to_string()],
+    });
     println!("Reset users");
     Ok(Json(usr.unwrap()))
   }
@@ -84,10 +88,15 @@ pub async fn new_user(user: Json<WithSecret<NewUserJson>>) -> Json<User> {
     .returning(User::as_returning())
     .get_result(&mut establish_connection());
 
-  STATE.lock().await.trigger_update(vec![Topic::Users]);
+  let usrunwrap = usr.unwrap();
+
+  STATE.lock().await.trigger_update(Update {
+    topic: Topic::Users,
+    ids: vec![usrunwrap.id.to_string()],
+  });
   println!("Reset users");
 
-  Json(usr.unwrap())
+  Json(usrunwrap)
 }
 
 #[options("/user/update")]
@@ -111,7 +120,10 @@ pub async fn update_user(data: Json<WithSecret<UserJson>>) -> Result<Json<User>,
     ))
     .get_result(&mut establish_connection());
 
-  STATE.lock().await.trigger_update(vec![Topic::Users]);
+  STATE.lock().await.trigger_update(Update {
+    topic: Topic::Users,
+    ids: vec![data.data.id.to_string()],
+  });
   println!("Reset users");
 
   match rslt {
@@ -203,13 +215,5 @@ pub async fn remove_user(data: Json<WithSecret<UserSelectJson>>) -> Result<Json<
 
 #[options("/user/remove")]
 pub fn remove_user_preflight() -> NoContent {
-  NoContent
-}
-
-#[get("/user/reset")]
-pub async fn reset_users() -> NoContent {
-  println!("Reset users start");
-  STATE.lock().await.trigger_update(vec![Topic::Users]);
-  println!("Reset users");
   NoContent
 }

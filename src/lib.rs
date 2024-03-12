@@ -19,6 +19,55 @@ pub mod types;
 
 pub static STATE: Mutex<CustState> = Mutex::const_new(CustState::const_new());
 
+#[derive(PartialEq, Debug, Clone)]
+pub struct Update {
+  pub topic: Topic,
+  pub ids: Vec<String>,
+}
+
+// TODO: Work here!!!!
+pub func str_from_id(id: String) -> String {
+    return 
+}
+
+impl From<Update> for String {
+  fn from(t: Update) -> Self {
+    return t.topic.to_string() + ":" + &t.ids.join(",");
+  }
+}
+impl From<Update> for &str {
+  fn from(t: Update) -> Self {
+    match t {
+      Topic::Users => "users",
+      Topic::Tickets => "tickets",
+    }
+  }
+}
+impl TryFrom<String> for Update {
+  type Error = ();
+  fn try_from(s: String) -> Result<Self, Self::Error> {
+    match s.as_str() {
+      "users" => Ok(Topic::Users),
+      "Users" => Ok(Topic::Users),
+      "tickets" => Ok(Topic::Tickets),
+      "Tickets" => Ok(Topic::Tickets),
+      _ => Err(()),
+    }
+  }
+}
+impl TryFrom<&str> for Update {
+  type Error = ();
+  fn try_from(s: &str) -> Result<Self, Self::Error> {
+    match s {
+      "users" => Ok(Topic::Users),
+      "Users" => Ok(Topic::Users),
+      "tickets" => Ok(Topic::Tickets),
+      "Tickets" => Ok(Topic::Tickets),
+      _ => Err(()),
+    }
+  }
+}
+
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum Topic {
   Users,
@@ -33,7 +82,6 @@ impl From<Topic> for String {
     }
   }
 }
-
 impl From<Topic> for &str {
   fn from(t: Topic) -> Self {
     match t {
@@ -42,7 +90,6 @@ impl From<Topic> for &str {
     }
   }
 }
-
 impl TryFrom<String> for Topic {
   type Error = ();
   fn try_from(s: String) -> Result<Self, Self::Error> {
@@ -55,7 +102,6 @@ impl TryFrom<String> for Topic {
     }
   }
 }
-
 impl TryFrom<&str> for Topic {
   type Error = ();
   fn try_from(s: &str) -> Result<Self, Self::Error> {
@@ -73,7 +119,8 @@ impl TryFrom<&str> for Topic {
 pub struct Subscriber {
   pub name: String,
   pub id: String,
-  pub topics: Vec<(Topic, bool)>,
+  pub topics: Vec<Topic>,
+  pub updates: Vec<Update>,
 }
 
 impl Subscriber {
@@ -81,7 +128,8 @@ impl Subscriber {
     Subscriber {
       name: name.to_string(),
       id: Uuid::new_v4().to_string(),
-      topics: topics.iter().map(|t| (*t, false)).collect(),
+      topics: topics.clone(),
+      updates: Vec::new(),
     }
   }
 }
@@ -110,24 +158,14 @@ impl CustState {
   pub fn unsubscribe(&mut self, id: &str) {
     self.subscribers.retain(|s| s.id != id);
   }
-  pub fn trigger_update(&mut self, topics: Vec<Topic>) {
+  pub fn trigger_update(&mut self, update: Update) {
     self.subscribers = self
       .subscribers
       .iter()
       .map(|s| {
         let mut sbs = s.clone();
-        for tp in topics.iter() {
-          sbs.topics = sbs
-            .topics
-            .iter()
-            .map(|top| {
-              let mut t = top.clone();
-              if &t.0 == tp {
-                t.1 = true;
-              }
-              t
-            })
-            .collect();
+        if sbs.topics.contains(&update.topic) {
+          sbs.updates.push(update);
         }
         println!("Updating subscriber: {:?}", sbs);
         sbs.clone()
@@ -135,26 +173,18 @@ impl CustState {
       .collect();
     println!("Subscribers: {:?}", self.subscribers);
   }
-  pub fn check_subscriber(&mut self, id: &str, topics: Vec<Topic>) -> Vec<Topic> {
-    let mut rtrn: Vec<Topic> = Vec::new();
+  pub fn check_subscriber(&mut self, id: &str, topic: Topic) -> Vec<Update> {
+    let mut rtrn: Vec<Update> = Vec::new();
     self.subscribers = self
       .subscribers
       .iter()
       .map(|sbs| {
         let mut s = sbs.clone();
         if s.id == id {
-          s.topics = s
-            .topics
-            .iter()
-            .map(|tpc| {
-              let mut t = tpc.clone();
-              if t.1 && topics.contains(&t.0) {
-                rtrn.push(t.0);
-                t.1 = false;
-              }
-              t
-            })
-            .collect();
+          if s.updates.len() > 0 && s.topics.contains(&topic) {
+            rtrn.append(&mut s.updates.clone());
+            s.updates = Vec::new();
+          }
         }
         s.clone()
       })
