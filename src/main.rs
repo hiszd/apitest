@@ -61,7 +61,6 @@ fn rocket() -> _ {
         user::list_users_preflight,
         user::remove_user,
         user::remove_user_preflight,
-        user::reset_users,
         ticket::update_ticket,
         ticket::update_ticket_preflight,
         ticket::new_ticket,
@@ -71,7 +70,6 @@ fn rocket() -> _ {
         ticket::list_tickets_preflight,
         ticket::remove_ticket,
         ticket::remove_ticket_preflight,
-        ticket::reset_tickets,
         shared::sock,
       ],
     )

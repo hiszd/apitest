@@ -8,6 +8,7 @@ use rocket::serde::json::Json;
 use crate::establish_connection;
 use crate::model::*;
 use crate::schema::*;
+use crate::types::json::shared::JustSecret;
 use crate::types::json::shared::WithSecret;
 use crate::types::json::user::*;
 use crate::Topic;
@@ -163,15 +164,18 @@ pub fn get_user_preflight() -> NoContent {
   NoContent
 }
 
-// TODO: change all requests to POST and confirm secret before doing anything
-#[get("/user/list/all")]
-pub fn list_users() -> Json<Vec<User>> {
-  Json(
+#[post("/user/list/all", data = "<data>")]
+pub fn list_users(data: Json<JustSecret>) -> Result<Json<Vec<User>>, ()> {
+  if data.secret != crate::SECRET {
+    println!("Wrong secret: {}, {}", data.secret, crate::SECRET);
+    return Err(());
+  }
+  Ok(Json(
     users::table
       .select(User::as_select())
       .load(&mut establish_connection())
       .unwrap(),
-  )
+  ))
 }
 
 #[options("/user/list/all")]

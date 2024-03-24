@@ -19,52 +19,20 @@ pub mod types;
 
 pub static STATE: Mutex<CustState> = Mutex::const_new(CustState::const_new());
 
+// TODO: Work here!!!!
+// pub fn str_from_id(id: String) -> String {
+//   return;
+// }
+
 #[derive(PartialEq, Debug, Clone)]
 pub struct Update {
   pub topic: Topic,
   pub ids: Vec<String>,
 }
 
-// TODO: Work here!!!!
-pub func str_from_id(id: String) -> String {
-    return 
-}
-
 impl From<Update> for String {
   fn from(t: Update) -> Self {
-    return t.topic.to_string() + ":" + &t.ids.join(",");
-  }
-}
-impl From<Update> for &str {
-  fn from(t: Update) -> Self {
-    match t {
-      Topic::Users => "users",
-      Topic::Tickets => "tickets",
-    }
-  }
-}
-impl TryFrom<String> for Update {
-  type Error = ();
-  fn try_from(s: String) -> Result<Self, Self::Error> {
-    match s.as_str() {
-      "users" => Ok(Topic::Users),
-      "Users" => Ok(Topic::Users),
-      "tickets" => Ok(Topic::Tickets),
-      "Tickets" => Ok(Topic::Tickets),
-      _ => Err(()),
-    }
-  }
-}
-impl TryFrom<&str> for Update {
-  type Error = ();
-  fn try_from(s: &str) -> Result<Self, Self::Error> {
-    match s {
-      "users" => Ok(Topic::Users),
-      "Users" => Ok(Topic::Users),
-      "tickets" => Ok(Topic::Tickets),
-      "Tickets" => Ok(Topic::Tickets),
-      _ => Err(()),
-    }
+    return String::from(t.topic) + ":" + &t.ids.join(",");
   }
 }
 
@@ -165,7 +133,7 @@ impl CustState {
       .map(|s| {
         let mut sbs = s.clone();
         if sbs.topics.contains(&update.topic) {
-          sbs.updates.push(update);
+          sbs.updates.push(update.clone());
         }
         println!("Updating subscriber: {:?}", sbs);
         sbs.clone()
