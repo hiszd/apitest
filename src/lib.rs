@@ -1,6 +1,5 @@
 use std::env;
 
-use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use dotenvy::dotenv;
 use rocket::tokio::sync::Mutex;
@@ -32,7 +31,7 @@ pub struct Update {
 
 impl From<Update> for String {
   fn from(t: Update) -> Self {
-    return String::from(t.topic) + ":" + &t.ids.join(",");
+    String::from(t.topic) + ":" + &t.ids.join(",")
   }
 }
 
@@ -164,7 +163,7 @@ impl CustState {
 pub fn establish_connection() -> PgConnection {
   dotenv().ok();
 
-  let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+  let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set in .env");
   PgConnection::establish(&database_url)
-    .unwrap_or_else(|_| panic!("Error connecting to {database_url}"))
+    .unwrap_or_else(|e| panic!("Error connecting to {database_url}, Error: {e}"))
 }
