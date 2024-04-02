@@ -14,11 +14,18 @@ pub fn sock<'r>(ws: rocket_ws::WebSocket) -> rocket_ws::Channel<'r> {
         if let Ok(msg) = message {
           let mut dn: bool = false;
           let ms = msg.to_string();
+          println!("Received: {}", ms);
           let m = ms.split(",").collect::<Vec<&str>>();
           m.iter().for_each(|m| {
-            if let Ok(t) = Topic::try_from(m.to_string()) {
-              v.push(t);
-              dn = true;
+            let t = Topic::try_from(m.to_string());
+            match t {
+              Ok(t) => {
+                v.push(t);
+                dn = true;
+              }
+              Err(_) => {
+                println!("Invalid topic: {}", m)
+              }
             }
           });
           if !v.is_empty() {
